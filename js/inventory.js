@@ -246,6 +246,17 @@ async function saveItem(event) {
             loadInventory();
             loadStats();
             loadCategories();
+        } else if (response && response.limitReached) {
+            // Show limit reached message with upgrade option
+            if (confirm(response.error + '\n\nWould you like to go to settings to unlock unlimited items?')) {
+                window.location.href = '/dashboard.html';
+                // After redirect, switch to settings tab
+                setTimeout(() => {
+                    if (typeof switchTab === 'function') {
+                        switchTab('settings');
+                    }
+                }, 100);
+            }
         } else {
             alert(response.error || 'Failed to save item');
         }

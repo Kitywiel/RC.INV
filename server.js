@@ -64,6 +64,8 @@ function initializeDatabase() {
             password TEXT NOT NULL,
             role TEXT DEFAULT 'owner',
             owner_id INTEGER,
+            item_limit INTEGER DEFAULT 20,
+            has_unlimited BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_login DATETIME,
             FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -73,9 +75,11 @@ function initializeDatabase() {
             console.error('❌ Error creating users table:', err);
         } else {
             console.log('✓ Users table ready');
-            // Add role column if it doesn't exist (for existing databases)
+            // Add columns if they don't exist (for existing databases)
             db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'owner'`, () => {});
             db.run(`ALTER TABLE users ADD COLUMN owner_id INTEGER`, () => {});
+            db.run(`ALTER TABLE users ADD COLUMN item_limit INTEGER DEFAULT 20`, () => {});
+            db.run(`ALTER TABLE users ADD COLUMN has_unlimited BOOLEAN DEFAULT 0`, () => {});
         }
     });
 
@@ -383,6 +387,62 @@ app.delete('/api/auth/guest/:id', authenticateToken, (req, res) => {
     );
 });
 
+// Unlock unlimited items with code
+app.post('/api/auth/unlock-unlimited', authenticateToken, (req, res) => {
+    const { code } = req.body;
+    const UNLOCK_CODE = process.env.UNLOCK_CODE || 'UNLIMITED2024';
+
+    if (!code) {
+        return res.status(400).json({ error: 'Unlock code is required' });
+    }
+
+    if (code !== UNLOCK_CODE) {
+        return res.status(403).json({ error: 'Invalid unlock code' });
+    }
+
+    db.run(
+        `UPDATE users SET has_unlimited = 1 WHERE id = ?`,
+        [req.user.id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to unlock unlimited items' });
+            }
+            console.log(`✓ Unlimited items unlocked for user ${req.user.username}`);
+            res.json({ success: true, message: 'Unlimited items unlocked!' });
+        }
+    );
+});
+
+// Get user limits
+app.get('/api/auth/limits', authenticateToken, (req, res) => {
+    db.get(
+        'SELECT item_limit, has_unlimited FROM users WHERE id = ?',
+        [req.user.id],
+        (err, user) => {
+            if (err || !user) {
+                return res.status(500).json({ error: 'Failed to fetch limits' });
+            }
+
+            db.get(
+                'SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?',
+                [req.user.id],
+                (err, result) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to count items' });
+                    }
+
+                    res.json({
+                        itemLimit: user.item_limit,
+                        hasUnlimited: user.has_unlimited === 1,
+                        currentCount: result.count,
+                        remaining: user.has_unlimited ? 'unlimited' : Math.max(0, user.item_limit - result.count)
+                    });
+                }
+            );
+        }
+    );
+});
+
 // ============ INVENTORY MANAGEMENT ROUTES ============
 
 // Get all inventory items for user
@@ -460,7 +520,39 @@ app.post('/api/inventory', authenticateToken, (req, res) => {
         return res.status(400).json({ error: 'Item name is required' });
     }
 
-    db.run(
+    // Check item limit
+    db.get('SELECT item_limit, has_unlimited FROM users WHERE id = ?', [req.user.id], (err, user) => {
+        if (err || !user) {
+            return res.status(500).json({ error: 'Failed to check item limit' });
+        }
+
+        // Skip limit check if user has unlimited
+        if (user.has_unlimited) {
+            insertItem();
+            return;
+        }
+
+        // Check current item count
+        db.get('SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?', [req.user.id], (err, result) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to check item count' });
+            }
+
+            if (result.count >= user.item_limit) {
+                return res.status(403).json({ 
+                    error: `Item limit reached. You can only have ${user.item_limit} items. Upgrade to unlimited in settings.`,
+                    limitReached: true,
+                    currentCount: result.count,
+                    limit: user.item_limit
+                });
+            }
+
+            insertItem();
+        });
+    });
+
+    function insertItem() {
+        db.run(
         `INSERT INTO inventory_items 
         (user_id, name, description, category, quantity, unit, price, sku, location, min_quantity, image_url) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -484,6 +576,7 @@ app.post('/api/inventory', authenticateToken, (req, res) => {
             res.json({ success: true, itemId, message: 'Item created successfully' });
         }
     );
+    }
 });
 
 // Update inventory item

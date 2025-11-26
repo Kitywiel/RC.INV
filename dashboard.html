@@ -306,6 +306,23 @@
             <div id="settingsTab" class="tab-content">
                 <h2>Account Settings</h2>
                 
+                <!-- Item Limit Section -->
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+                    <h3>Item Limit</h3>
+                    <div id="limitInfo" style="margin: 20px 0;">
+                        <p>Loading...</p>
+                    </div>
+                    <div id="unlockForm" style="display: none;">
+                        <form onsubmit="unlockUnlimited(event)">
+                            <div class="form-group">
+                                <label for="unlockCode">Enter Unlock Code</label>
+                                <input type="text" id="unlockCode" placeholder="Enter your unlock code" required>
+                            </div>
+                            <button type="submit" class="btn-primary">Unlock Unlimited Items</button>
+                        </form>
+                    </div>
+                </div>
+
                 <div id="guestManagement" style="margin-top: 30px;">
                     <h3>Guest Account Management</h3>
                     <p style="color: #7f8c8d; margin-bottom: 20px;">Create read-only accounts that can view your inventory but cannot make changes.</p>
@@ -446,7 +463,72 @@
             } else if (tabName === 'settings') {
                 tabs[1].classList.add('active');
                 document.getElementById('settingsTab').classList.add('active');
+                loadLimits();
                 loadGuests();
+            }
+        }
+
+        // Load user limits
+        async function loadLimits() {
+            try {
+                const data = await apiCall('/api/auth/limits');
+                if (data) {
+                    displayLimits(data);
+                }
+            } catch (error) {
+                console.error('Error loading limits:', error);
+            }
+        }
+
+        function displayLimits(limits) {
+            const container = document.getElementById('limitInfo');
+            
+            if (limits.hasUnlimited) {
+                container.innerHTML = `
+                    <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 6px;">
+                        <strong>✓ Unlimited Items Unlocked!</strong><br>
+                        You can create as many items as you want.<br>
+                        <small>Current items: ${limits.currentCount}</small>
+                    </div>
+                `;
+                document.getElementById('unlockForm').style.display = 'none';
+            } else {
+                const percentage = (limits.currentCount / limits.itemLimit) * 100;
+                const color = percentage >= 90 ? '#e74c3c' : percentage >= 70 ? '#f39c12' : '#27ae60';
+                
+                container.innerHTML = `
+                    <p><strong>Current Items:</strong> ${limits.currentCount} / ${limits.itemLimit}</p>
+                    <div style="background: #ecf0f1; height: 20px; border-radius: 10px; overflow: hidden; margin: 10px 0;">
+                        <div style="background: ${color}; width: ${percentage}%; height: 100%; transition: width 0.3s;"></div>
+                    </div>
+                    <p style="color: #7f8c8d;"><strong>${limits.remaining}</strong> items remaining</p>
+                    ${percentage >= 90 ? '<p style="color: #e74c3c;">⚠️ You are approaching your item limit!</p>' : ''}
+                `;
+                document.getElementById('unlockForm').style.display = 'block';
+            }
+        }
+
+        async function unlockUnlimited(event) {
+            event.preventDefault();
+            
+            const code = document.getElementById('unlockCode').value.trim();
+            
+            try {
+                const response = await apiCall('/api/auth/unlock-unlimited', {
+                    method: 'POST',
+                    body: JSON.stringify({ code })
+                });
+
+                if (response && response.success) {
+                    alert('Unlimited items unlocked successfully!');
+                    document.getElementById('unlockCode').value = '';
+                    loadLimits();
+                } else {
+                    alert(response.error || 'Invalid unlock code');
+                }
+            } catch (error) {
+                console.error('Error unlocking unlimited:', error);
+                alert('Failed to unlock unlimited items');
             }
         }
 
