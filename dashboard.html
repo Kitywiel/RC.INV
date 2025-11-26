@@ -352,7 +352,12 @@
                             </div>
                             <div class="form-group">
                                 <label for="guestPassword">Password *</label>
-                                <input type="password" id="guestPassword" required minlength="6">
+                                <div style="position: relative;">
+                                    <input type="password" id="guestPassword" required minlength="6">
+                                    <button type="button" onclick="toggleGuestPassword()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2em;">
+                                        👁️
+                                    </button>
+                                </div>
                                 <small style="color: #7f8c8d;">Password must be at least 6 characters</small>
                             </div>
                             <button type="submit" class="btn-primary">Create Guest Account</button>
@@ -525,6 +530,19 @@
 
         function toggleUnlockCode() {
             const input = document.getElementById('unlockCode');
+            const button = event.target;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️';
+            }
+        }
+
+        function toggleGuestPassword() {
+            const input = document.getElementById('guestPassword');
             const button = event.target;
             
             if (input.type === 'password') {
