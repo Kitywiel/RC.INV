@@ -260,6 +260,22 @@ body::after {
     animation: shake 0.4s ease;
 }
 
+/* Success Message */
+.success-message {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+    font-size: 0.9em;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #28a745;
+}
+
+.success-message.show {
+    display: block;
+}
+
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-10px); }

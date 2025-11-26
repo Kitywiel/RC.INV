@@ -7,12 +7,17 @@ const fs = require('fs');
 const nodemailer = require('nodemailer');
 const sgMail = require('@sendgrid/mail');
 const { Resend } = require('resend');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const session = require('express-session');
+const sqlite3 = require('sqlite3').verbose();
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Middleware
 app.use(cors({
@@ -22,15 +27,206 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(session({
+    secret: JWT_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));
 
-// Create contacts directory if it doesn't exist
+// Create necessary directories
 const contactsDir = path.join(__dirname, 'contacts');
+const userInfoDir = path.join(__dirname, 'user_info');
 if (!fs.existsSync(contactsDir)) {
     fs.mkdirSync(contactsDir);
 }
+if (!fs.existsSync(userInfoDir)) {
+    fs.mkdirSync(userInfoDir);
+}
+
+// Initialize SQLite database
+const dbPath = path.join(userInfoDir, 'users.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('❌ Database connection error:', err);
+    } else {
+        console.log('✓ Database connected');
+        initializeDatabase();
+    }
+});
+
+// Create users table
+function initializeDatabase() {
+    db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating users table:', err);
+        } else {
+            console.log('✓ Users table ready');
+        }
+    });
+}
+
+// Authentication middleware
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Invalid or expired token' });
+        }
+        req.user = user;
+        next();
+    });
+}
+
+// ============ AUTHENTICATION ROUTES ============
+
+// Signup endpoint
+app.post('/api/auth/signup', async (req, res) => {
+    const { username, email, password } = req.body;
+
+    // Validation
+    if (!username || !email || !password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    try {
+        // Check if user already exists
+        db.get('SELECT * FROM users WHERE username = ? OR email = ?', [username, email], async (err, existingUser) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'Server error' });
+            }
+
+            if (existingUser) {
+                if (existingUser.username === username) {
+                    return res.status(400).json({ error: 'Username already exists' });
+                } else {
+                    return res.status(400).json({ error: 'Email already registered' });
+                }
+            }
+
+            // Hash password
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Insert new user
+            db.run(
+                'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+                [username, email, hashedPassword],
+                function(err) {
+                    if (err) {
+                        console.error('Error creating user:', err);
+                        return res.status(500).json({ error: 'Failed to create account' });
+                    }
+
+                    console.log(`✓ New user registered: ${username} (${email})`);
+                    res.json({
+                        success: true,
+                        message: 'Account created successfully',
+                        userId: this.lastID
+                    });
+                }
+            );
+        });
+    } catch (error) {
+        console.error('Signup error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Login endpoint
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    try {
+        db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ error: 'Server error' });
+            }
+
+            if (!user) {
+                return res.status(401).json({ error: 'Invalid username or password' });
+            }
+
+            // Verify password
+            const validPassword = await bcrypt.compare(password, user.password);
+            if (!validPassword) {
+                return res.status(401).json({ error: 'Invalid username or password' });
+            }
+
+            // Update last login
+            db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+
+            // Generate JWT token
+            const token = jwt.sign(
+                { id: user.id, username: user.username, email: user.email },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            console.log(`✓ User logged in: ${username}`);
+            
+            res.json({
+                success: true,
+                token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get current user (protected route example)
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+    db.get('SELECT id, username, email, created_at, last_login FROM users WHERE id = ?', [req.user.id], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Server error' });
+        }
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json({ user });
+    });
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', (req, res) => {
+    res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// ============ EMAIL CONFIGURATION ============
 
 // Email configuration - supports Resend, SendGrid, and Gmail SMTP
 let transporter;

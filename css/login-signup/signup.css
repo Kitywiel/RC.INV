@@ -303,3 +303,14 @@ body::after {
         font-size: 1.4em;
     }
 }
+/* Success Message */
+.success-message {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+    font-size: 0.9em;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #28a745;
+}
