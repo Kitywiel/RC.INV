@@ -3,10 +3,10 @@ node_modules/
 *.log
 .DS_Store
 
-# Database files (user data)
-user_info/users.db
-user_info/users.db-shm
-user_info/users.db-wal
+# Database files (user data) - ignore ALL database files
+user_info/*.db
+user_info/*.db-shm
+user_info/*.db-wal
 
 # Contact form submissions
 contacts/*.json
