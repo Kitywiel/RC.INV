@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RC.INV - Login</title>
+    <link rel="stylesheet" href="../css/login-signup/login.css">
+    <link rel="stylesheet" href="../css/main_settings.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-wrapper">
+            <a href="../start.html" class="back-link">← Back to Home</a>
+            <div class="logo-section">
+                <h1>RC.INV</h1>
+                <p>Your Partner in Inventory Management</p>
+            </div>
+            
+            <form id="loginForm" class="auth-form">
+                <h2>Welcome Back</h2>
+                
+                <div id="errorMessage" class="error-message"></div>
+                
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter your username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Login</button>
+                
+                <div class="form-footer">
+                    <p>Don't have an account? <a href="signup.html">Sign up here</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

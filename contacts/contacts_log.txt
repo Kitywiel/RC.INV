@@ -1,0 +1,42 @@
+
+=====================================
+Date: 2025-11-26T11:54:58.930Z
+From: Liam Wijlens (ldwijlens@gmail.com)
+To: kitiwiel@gmail.com
+Subject: test
+Message:
+test
+=====================================
+
+
+=====================================
+Date: 2025-11-26T11:57:19.548Z
+From: Liam Wijlens (ldwijlens@gmail.com)
+To: kitiwiel@gmail.com
+Subject: test
+Message:
+test
+
+=====================================
+
+
+=====================================
+Date: 2025-11-26T12:09:17.959Z
+From: kiti wiel (ldwijlens@gmail.com)
+To: kitiwiel@gmail.com
+Subject: hi
+Message:
+this is a test message
+
+=====================================
+
+
+=====================================
+Date: 2025-11-26T12:10:36.653Z
+From: Liam Wijlens (ldwijlens@gmail.com)
+To: kitiwiel@gmail.com
+Subject: test
+Message:
+test
+=====================================
+
