@@ -294,7 +294,7 @@
         <div class="dashboard-content">
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('overview')">Overview</button>
-                <button class="tab" id="settingsTab" onclick="switchTab('settings')" style="display: none;">Settings</button>
+                <button class="tab" id="settingsTabBtn" onclick="switchTab('settings')" style="display: none;">Settings</button>
             </div>
 
             <div id="overviewTab" class="tab-content active">
@@ -357,7 +357,7 @@
 
         // Show settings tab only for owners
         if (user.role !== 'guest') {
-            document.getElementById('settingsTab').style.display = 'block';
+            document.getElementById('settingsTabBtn').style.display = 'block';
             document.getElementById('guestManagement').classList.add('show');
         }
 
