@@ -2,3 +2,11 @@ node_modules/
 .env
 *.log
 .DS_Store
+
+# Database files (user data)
+user_info/users.db
+user_info/users.db-shm
+user_info/users.db-wal
+
+# Contact form submissions
+contacts/*.json
