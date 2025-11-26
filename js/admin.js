@@ -70,7 +70,7 @@ function displayUsers(users) {
         <tr>
             <td><strong>${escapeHtml(u.username)}</strong></td>
             <td>${escapeHtml(u.email)}</td>
-            <td><span class="badge">${u.role}</span></td>
+            <td><span class="badge">${u.role === 'owner' ? 'user' : u.role}</span></td>
             <td>
                 <span class="user-status ${u.is_active ? 'status-active' : 'status-inactive'}">
                     ${u.is_active ? 'Active' : 'Disabled'}
@@ -122,7 +122,7 @@ function displayUserDetails(user, items) {
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h3>${escapeHtml(user.username)}</h3>
             <p><strong>Email:</strong> ${escapeHtml(user.email)}</p>
-            <p><strong>Role:</strong> ${user.role}</p>
+            <p><strong>Role:</strong> ${user.role === 'owner' ? 'user' : user.role}</p>
             <p><strong>Status:</strong> <span class="user-status ${user.is_active ? 'status-active' : 'status-inactive'}">${user.is_active ? 'Active' : 'Disabled'}</span></p>
             <p><strong>Item Limit:</strong> ${user.has_unlimited ? '♾️ Unlimited' : user.item_limit}</p>
             <p><strong>Created:</strong> ${formatDate(user.created_at)}</p>
