@@ -19,7 +19,7 @@ body {
         background-position: 100% 50%;
     }
     100% {
-        background-position: 50% 50%;
+        background-position: 0% 50%;
     }
 }
 
@@ -196,11 +196,43 @@ body::after {
     color: #95a5a6;
 }
 
-.form-group small {
+/* Password Wrapper */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    padding-right: 45px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px 10px;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+    z-index: 10;
+}
+
+.toggle-password:hover {
+    transform: scale(1.1);
+}
+
+.toggle-password:active {
+    transform: scale(0.95);
+}
+
+.eye-icon {
     display: block;
-    margin-top: 5px;
-    color: #7f8c8d;
-    font-size: 0.85em;
+    user-select: none;
 }
 
 /* Button */
@@ -250,43 +282,43 @@ body::after {
     text-decoration: underline;
 }
 
-/* Messages */
-.error-message,
+/* Error Message */
+.error-message {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: none;
+    font-size: 0.9em;
+    background-color: #fadbd8;
+    color: #c0392b;
+    border: 1px solid #e74c3c;
+}
+
+.error-message.show {
+    display: block;
+    animation: shake 0.4s ease;
+}
+
+/* Success Message */
 .success-message {
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 20px;
     display: none;
     font-size: 0.9em;
-}
-
-.error-message {
-    background-color: #fadbd8;
-    color: #c0392b;
-    border: 1px solid #e74c3c;
-}
-
-.success-message {
     background-color: #d4edda;
     color: #155724;
-    border: 1px solid #c3e6cb;
+    border: 1px solid #28a745;
 }
 
-.error-message.show,
 .success-message.show {
     display: block;
-    animation: slideIn 0.4s ease;
 }
 
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
 }
 
 /* Responsive */
@@ -302,15 +334,4 @@ body::after {
     .auth-form h2 {
         font-size: 1.4em;
     }
-}
-/* Success Message */
-.success-message {
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: none;
-    font-size: 0.9em;
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #28a745;
 }
