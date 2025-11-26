@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RC.INV - Inventory Management</title>
+    <link rel="stylesheet" href="css/main_settings.css">
+    <link rel="stylesheet" href="css/inventory.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>RC.INV</h1>
+                <nav class="nav-menu">
+                    <a href="dashboard.html">Dashboard</a>
+                    <a href="inventory.html" class="active">Inventory</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span class="user-name" id="userName">Loading...</span>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <h3 id="totalItems">0</h3>
+                    <p>Total Items</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3 id="totalValue">$0.00</h3>
+                    <p>Total Value</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-info">
+                    <h3 id="lowStock">0</h3>
+                    <p>Low Stock</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏷️</div>
+                <div class="stat-info">
+                    <h3 id="totalCategories">0</h3>
+                    <p>Categories</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search inventory..." onkeyup="filterItems()">
+            </div>
+            <div class="toolbar-actions">
+                <select id="categoryFilter" onchange="filterItems()">
+                    <option value="">All Categories</option>
+                </select>
+                <button class="btn btn-primary" onclick="showAddItemModal()">+ Add Item</button>
+            </div>
+        </div>
+
+        <!-- Inventory Table -->
+        <div class="inventory-table-container">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>SKU</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Price</th>
+                        <th>Total Value</th>
+                        <th>Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTableBody">
+                    <tr>
+                        <td colspan="9" class="loading-cell">Loading inventory...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Item</h2>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="itemForm" onsubmit="saveItem(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="itemName">Item Name *</label>
+                        <input type="text" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemCategory">Category</label>
+                        <input type="text" id="itemCategory" list="categoryList">
+                        <datalist id="categoryList"></datalist>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="itemSKU">SKU</label>
+                        <input type="text" id="itemSKU">
+                    </div>
+                    <div class="form-group">
+                        <label for="itemLocation">Location</label>
+                        <input type="text" id="itemLocation">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="itemDescription">Description</label>
+                    <textarea id="itemDescription" rows="3"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="itemQuantity">Quantity *</label>
+                        <input type="number" id="itemQuantity" value="0" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemUnit">Unit</label>
+                        <input type="text" id="itemUnit" value="units">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="itemPrice">Price</label>
+                        <input type="number" id="itemPrice" value="0" min="0" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="itemMinQuantity">Min Quantity (Alert)</label>
+                        <input type="number" id="itemMinQuantity" value="0" min="0">
+                    </div>
+                </div>
+
+                <input type="hidden" id="itemId">
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Adjust Quantity Modal -->
+    <div id="adjustModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Adjust Quantity</h2>
+                <span class="close" onclick="closeAdjustModal()">&times;</span>
+            </div>
+            <form id="adjustForm" onsubmit="adjustQuantity(event)">
+                <p><strong id="adjustItemName"></strong></p>
+                <p>Current Quantity: <span id="currentQuantity"></span></p>
+
+                <div class="form-group">
+                    <label for="quantityChange">Change Amount</label>
+                    <input type="number" id="quantityChange" placeholder="+ to add, - to remove" required>
+                    <small>Enter positive number to add, negative to remove</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="adjustNotes">Notes (optional)</label>
+                    <input type="text" id="adjustNotes" placeholder="Reason for adjustment">
+                </div>
+
+                <input type="hidden" id="adjustItemId">
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAdjustModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Adjust</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/inventory.js"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+// Check authentication
+const token = localStorage.getItem('token');
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+if (!token || !user.username) {
+    window.location.href = '/user/login.html';
+}
+
+// Display user name
+document.getElementById('userName').textContent = user.username;
+
+// Global variables
+let allItems = [];
+let categories = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadStats();
+    loadInventory();
+    loadCategories();
+});
+
+// API Helper
+async function apiCall(endpoint, options = {}) {
+    const defaultOptions = {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    };
+
+    const response = await fetch(endpoint, { ...defaultOptions, ...options });
+    
+    if (response.status === 401 || response.status === 403) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/user/login.html';
+        return null;
+    }
+
+    return response.json();
+}
+
+// Load Statistics
+async function loadStats() {
+    try {
+        const data = await apiCall('/api/inventory/stats');
+        if (data && data.stats) {
+            document.getElementById('totalItems').textContent = data.stats.totalItems;
+            document.getElementById('totalValue').textContent = '$' + data.stats.totalValue;
+            document.getElementById('lowStock').textContent = data.stats.lowStockItems;
+            document.getElementById('totalCategories').textContent = data.stats.totalCategories;
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Load Inventory
+async function loadInventory() {
+    try {
+        const data = await apiCall('/api/inventory');
+        if (data && data.items) {
+            allItems = data.items;
+            displayInventory(allItems);
+        }
+    } catch (error) {
+        console.error('Error loading inventory:', error);
+        document.getElementById('inventoryTableBody').innerHTML = 
+            '<tr><td colspan="9" class="loading-cell">Failed to load inventory</td></tr>';
+    }
+}
+
+// Display Inventory
+function displayInventory(items) {
+    const tbody = document.getElementById('inventoryTableBody');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-cell">No items found. Click "Add Item" to get started!</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(item => {
+        const totalValue = (item.quantity * item.price).toFixed(2);
+        const isLowStock = item.min_quantity > 0 && item.quantity <= item.min_quantity;
+        const quantityClass = isLowStock ? 'low-stock' : '';
+
+        return `
+            <tr data-id="${item.id}">
+                <td><strong>${escapeHtml(item.name)}</strong>${item.description ? '<br><small>' + escapeHtml(item.description) + '</small>' : ''}</td>
+                <td>${escapeHtml(item.category || '-')}</td>
+                <td>${escapeHtml(item.sku || '-')}</td>
+                <td class="${quantityClass}">${item.quantity} ${isLowStock ? '⚠️' : ''}</td>
+                <td>${escapeHtml(item.unit)}</td>
+                <td>$${item.price.toFixed(2)}</td>
+                <td>$${totalValue}</td>
+                <td>${escapeHtml(item.location || '-')}</td>
+                <td class="actions-cell">
+                    <button class="btn btn-small btn-adjust" onclick="showAdjustModal(${item.id})">📊 Adjust</button>
+                    <button class="btn btn-small btn-edit" onclick="editItem(${item.id})">✏️ Edit</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteItem(${item.id})">🗑️</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Load Categories
+async function loadCategories() {
+    try {
+        const data = await apiCall('/api/categories');
+        if (data && data.categories) {
+            categories = data.categories;
+            
+            // Update category filter
+            const filterSelect = document.getElementById('categoryFilter');
+            const uniqueCategories = [...new Set(allItems.map(item => item.category).filter(c => c))];
+            filterSelect.innerHTML = '<option value="">All Categories</option>' + 
+                uniqueCategories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+
+            // Update category datalist
+            const datalist = document.getElementById('categoryList');
+            datalist.innerHTML = uniqueCategories.map(cat => `<option value="${escapeHtml(cat)}">`).join('');
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+// Filter Items
+function filterItems() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value;
+
+    const filtered = allItems.filter(item => {
+        const matchesSearch = !searchTerm || 
+            item.name.toLowerCase().includes(searchTerm) ||
+            (item.description && item.description.toLowerCase().includes(searchTerm)) ||
+            (item.sku && item.sku.toLowerCase().includes(searchTerm));
+
+        const matchesCategory = !categoryFilter || item.category === categoryFilter;
+
+        return matchesSearch && matchesCategory;
+    });
+
+    displayInventory(filtered);
+}
+
+// Show Add Item Modal
+function showAddItemModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Item';
+    document.getElementById('itemForm').reset();
+    document.getElementById('itemId').value = '';
+    document.getElementById('itemModal').style.display = 'block';
+}
+
+// Edit Item
+function editItem(id) {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+
+    document.getElementById('modalTitle').textContent = 'Edit Item';
+    document.getElementById('itemId').value = item.id;
+    document.getElementById('itemName').value = item.name;
+    document.getElementById('itemDescription').value = item.description || '';
+    document.getElementById('itemCategory').value = item.category || '';
+    document.getElementById('itemSKU').value = item.sku || '';
+    document.getElementById('itemLocation').value = item.location || '';
+    document.getElementById('itemQuantity').value = item.quantity;
+    document.getElementById('itemUnit').value = item.unit;
+    document.getElementById('itemPrice').value = item.price;
+    document.getElementById('itemMinQuantity').value = item.min_quantity;
+
+    document.getElementById('itemModal').style.display = 'block';
+}
+
+// Save Item
+async function saveItem(event) {
+    event.preventDefault();
+
+    const itemData = {
+        name: document.getElementById('itemName').value,
+        description: document.getElementById('itemDescription').value,
+        category: document.getElementById('itemCategory').value,
+        sku: document.getElementById('itemSKU').value,
+        location: document.getElementById('itemLocation').value,
+        quantity: parseInt(document.getElementById('itemQuantity').value),
+        unit: document.getElementById('itemUnit').value,
+        price: parseFloat(document.getElementById('itemPrice').value),
+        min_quantity: parseInt(document.getElementById('itemMinQuantity').value)
+    };
+
+    const itemId = document.getElementById('itemId').value;
+
+    try {
+        let response;
+        if (itemId) {
+            // Update existing item
+            response = await apiCall(`/api/inventory/${itemId}`, {
+                method: 'PUT',
+                body: JSON.stringify(itemData)
+            });
+        } else {
+            // Create new item
+            response = await apiCall('/api/inventory', {
+                method: 'POST',
+                body: JSON.stringify(itemData)
+            });
+        }
+
+        if (response && response.success) {
+            closeModal();
+            loadInventory();
+            loadStats();
+            loadCategories();
+        } else {
+            alert(response.error || 'Failed to save item');
+        }
+    } catch (error) {
+        console.error('Error saving item:', error);
+        alert('Failed to save item');
+    }
+}
+
+// Show Adjust Modal
+function showAdjustModal(id) {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+
+    document.getElementById('adjustItemId').value = item.id;
+    document.getElementById('adjustItemName').textContent = item.name;
+    document.getElementById('currentQuantity').textContent = `${item.quantity} ${item.unit}`;
+    document.getElementById('adjustForm').reset();
+    document.getElementById('adjustModal').style.display = 'block';
+}
+
+// Adjust Quantity
+async function adjustQuantity(event) {
+    event.preventDefault();
+
+    const itemId = document.getElementById('adjustItemId').value;
+    const quantityChange = parseInt(document.getElementById('quantityChange').value);
+    const notes = document.getElementById('adjustNotes').value;
+
+    try {
+        const response = await apiCall(`/api/inventory/${itemId}/adjust`, {
+            method: 'POST',
+            body: JSON.stringify({ quantity: quantityChange, notes })
+        });
+
+        if (response && response.success) {
+            closeAdjustModal();
+            loadInventory();
+            loadStats();
+        } else {
+            alert(response.error || 'Failed to adjust quantity');
+        }
+    } catch (error) {
+        console.error('Error adjusting quantity:', error);
+        alert('Failed to adjust quantity');
+    }
+}
+
+// Delete Item
+async function deleteItem(id) {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
+
+    try {
+        const response = await apiCall(`/api/inventory/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response && response.success) {
+            loadInventory();
+            loadStats();
+        } else {
+            alert(response.error || 'Failed to delete item');
+        }
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        alert('Failed to delete item');
+    }
+}
+
+// Close Modals
+function closeModal() {
+    document.getElementById('itemModal').style.display = 'none';
+}
+
+function closeAdjustModal() {
+    document.getElementById('adjustModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const itemModal = document.getElementById('itemModal');
+    const adjustModal = document.getElementById('adjustModal');
+    if (event.target === itemModal) {
+        closeModal();
+    }
+    if (event.target === adjustModal) {
+        closeAdjustModal();
+    }
+}
+
+// Logout
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/start.html';
+    }
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

@@ -109,6 +109,42 @@
             padding: 40px;
             color: #7f8c8d;
         }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .action-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .action-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .action-card h3 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+
+        .action-card p {
+            color: #7f8c8d;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -119,6 +155,14 @@
                 <span>Welcome, <strong id="username">Loading...</strong></span>
                 <button class="btn-logout" onclick="logout()">Logout</button>
             </div>
+        </div>
+
+        <div class="quick-actions" style="margin-bottom: 30px;">
+            <a href="inventory.html" class="action-card">
+                <div class="action-icon">📦</div>
+                <h3>Manage Inventory</h3>
+                <p>View and manage your items</p>
+            </a>
         </div>
 
         <div class="dashboard-content" id="dashboardContent">
