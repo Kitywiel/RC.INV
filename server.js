@@ -53,8 +53,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-// Create users table
+// Create database tables
 function initializeDatabase() {
+    // Users table
     db.run(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +70,76 @@ function initializeDatabase() {
             console.error('❌ Error creating users table:', err);
         } else {
             console.log('✓ Users table ready');
+        }
+    });
+
+    // Inventory items table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS inventory_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            category TEXT,
+            quantity INTEGER DEFAULT 0,
+            unit TEXT DEFAULT 'units',
+            price REAL DEFAULT 0,
+            sku TEXT,
+            location TEXT,
+            min_quantity INTEGER DEFAULT 0,
+            image_url TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating inventory_items table:', err);
+        } else {
+            console.log('✓ Inventory items table ready');
+        }
+    });
+
+    // Inventory categories table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            color TEXT DEFAULT '#667eea',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, name)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating categories table:', err);
+        } else {
+            console.log('✓ Categories table ready');
+        }
+    });
+
+    // Inventory transactions (history log)
+    db.run(`
+        CREATE TABLE IF NOT EXISTS inventory_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('add', 'remove', 'update', 'adjust')),
+            quantity_change INTEGER,
+            old_quantity INTEGER,
+            new_quantity INTEGER,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating inventory_transactions table:', err);
+        } else {
+            console.log('✓ Inventory transactions table ready');
         }
     });
 }
@@ -219,6 +290,267 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // Logout endpoint
 app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// ============ INVENTORY MANAGEMENT ROUTES ============
+
+// Get all inventory items for user
+app.get('/api/inventory', authenticateToken, (req, res) => {
+    db.all(
+        `SELECT * FROM inventory_items WHERE user_id = ? ORDER BY updated_at DESC`,
+        [req.user.id],
+        (err, items) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch inventory' });
+            }
+            res.json({ items });
+        }
+    );
+});
+
+// Get inventory statistics (MUST be before /:id route)
+app.get('/api/inventory/stats', authenticateToken, (req, res) => {
+    const stats = {};
+
+    // Total items
+    db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?`, [req.user.id], (err, result) => {
+        stats.totalItems = result ? result.count : 0;
+
+        // Total value
+        db.get(`SELECT SUM(quantity * price) as value FROM inventory_items WHERE user_id = ?`, [req.user.id], (err, result) => {
+            stats.totalValue = result && result.value ? result.value.toFixed(2) : '0.00';
+
+            // Low stock items
+            db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ? AND quantity <= min_quantity AND min_quantity > 0`, [req.user.id], (err, result) => {
+                stats.lowStockItems = result ? result.count : 0;
+
+                // Categories count
+                db.get(`SELECT COUNT(DISTINCT category) as count FROM inventory_items WHERE user_id = ? AND category IS NOT NULL`, [req.user.id], (err, result) => {
+                    stats.totalCategories = result ? result.count : 0;
+
+                    res.json({ stats });
+                });
+            });
+        });
+    });
+});
+
+// Get single inventory item
+app.get('/api/inventory/:id', authenticateToken, (req, res) => {
+    db.get(
+        `SELECT * FROM inventory_items WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.user.id],
+        (err, item) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch item' });
+            }
+            if (!item) {
+                return res.status(404).json({ error: 'Item not found' });
+            }
+            res.json({ item });
+        }
+    );
+});
+
+// Create new inventory item
+app.post('/api/inventory', authenticateToken, (req, res) => {
+    const { name, description, category, quantity, unit, price, sku, location, min_quantity, image_url } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Item name is required' });
+    }
+
+    db.run(
+        `INSERT INTO inventory_items 
+        (user_id, name, description, category, quantity, unit, price, sku, location, min_quantity, image_url) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.user.id, name, description, category, quantity || 0, unit || 'units', price || 0, sku, location, min_quantity || 0, image_url],
+        function(err) {
+            if (err) {
+                console.error('Error creating item:', err);
+                return res.status(500).json({ error: 'Failed to create item' });
+            }
+
+            const itemId = this.lastID;
+
+            // Log transaction
+            db.run(
+                `INSERT INTO inventory_transactions (user_id, item_id, type, quantity_change, old_quantity, new_quantity, notes)
+                VALUES (?, ?, 'add', ?, 0, ?, ?)`,
+                [req.user.id, itemId, quantity || 0, quantity || 0, `Initial stock: ${name}`]
+            );
+
+            console.log(`✓ New inventory item created: ${name} by user ${req.user.username}`);
+            res.json({ success: true, itemId, message: 'Item created successfully' });
+        }
+    );
+});
+
+// Update inventory item
+app.put('/api/inventory/:id', authenticateToken, (req, res) => {
+    const { name, description, category, quantity, unit, price, sku, location, min_quantity, image_url } = req.body;
+
+    // First get old item for transaction log
+    db.get(
+        `SELECT * FROM inventory_items WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.user.id],
+        (err, oldItem) => {
+            if (err || !oldItem) {
+                return res.status(404).json({ error: 'Item not found' });
+            }
+
+            db.run(
+                `UPDATE inventory_items SET 
+                name = COALESCE(?, name),
+                description = COALESCE(?, description),
+                category = COALESCE(?, category),
+                quantity = COALESCE(?, quantity),
+                unit = COALESCE(?, unit),
+                price = COALESCE(?, price),
+                sku = COALESCE(?, sku),
+                location = COALESCE(?, location),
+                min_quantity = COALESCE(?, min_quantity),
+                image_url = COALESCE(?, image_url),
+                updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND user_id = ?`,
+                [name, description, category, quantity, unit, price, sku, location, min_quantity, image_url, req.params.id, req.user.id],
+                function(err) {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to update item' });
+                    }
+
+                    // Log transaction if quantity changed
+                    if (quantity !== undefined && quantity !== oldItem.quantity) {
+                        db.run(
+                            `INSERT INTO inventory_transactions (user_id, item_id, type, quantity_change, old_quantity, new_quantity, notes)
+                            VALUES (?, ?, 'update', ?, ?, ?, ?)`,
+                            [req.user.id, req.params.id, quantity - oldItem.quantity, oldItem.quantity, quantity, `Updated: ${name || oldItem.name}`]
+                        );
+                    }
+
+                    res.json({ success: true, message: 'Item updated successfully' });
+                }
+            );
+        }
+    );
+});
+
+// Delete inventory item
+app.delete('/api/inventory/:id', authenticateToken, (req, res) => {
+    db.run(
+        `DELETE FROM inventory_items WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.user.id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to delete item' });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Item not found' });
+            }
+            console.log(`✓ Item deleted by user ${req.user.username}`);
+            res.json({ success: true, message: 'Item deleted successfully' });
+        }
+    );
+});
+
+// Adjust inventory quantity (add/remove stock)
+app.post('/api/inventory/:id/adjust', authenticateToken, (req, res) => {
+    const { quantity, notes } = req.body;
+
+    if (quantity === undefined || quantity === 0) {
+        return res.status(400).json({ error: 'Quantity adjustment required' });
+    }
+
+    db.get(
+        `SELECT * FROM inventory_items WHERE id = ? AND user_id = ?`,
+        [req.params.id, req.user.id],
+        (err, item) => {
+            if (err || !item) {
+                return res.status(404).json({ error: 'Item not found' });
+            }
+
+            const newQuantity = item.quantity + quantity;
+
+            if (newQuantity < 0) {
+                return res.status(400).json({ error: 'Cannot reduce below 0' });
+            }
+
+            db.run(
+                `UPDATE inventory_items SET quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                [newQuantity, req.params.id],
+                (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to adjust quantity' });
+                    }
+
+                    // Log transaction
+                    db.run(
+                        `INSERT INTO inventory_transactions (user_id, item_id, type, quantity_change, old_quantity, new_quantity, notes)
+                        VALUES (?, ?, 'adjust', ?, ?, ?, ?)`,
+                        [req.user.id, req.params.id, quantity, item.quantity, newQuantity, notes || '']
+                    );
+
+                    res.json({ 
+                        success: true, 
+                        message: 'Quantity adjusted successfully',
+                        oldQuantity: item.quantity,
+                        newQuantity
+                    });
+                }
+            );
+        }
+    );
+});
+
+// Get inventory history/transactions
+app.get('/api/inventory/:id/history', authenticateToken, (req, res) => {
+    db.all(
+        `SELECT * FROM inventory_transactions WHERE item_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 50`,
+        [req.params.id, req.user.id],
+        (err, transactions) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch history' });
+            }
+            res.json({ transactions });
+        }
+    );
+});
+
+// Get all categories for user
+app.get('/api/categories', authenticateToken, (req, res) => {
+    db.all(
+        `SELECT * FROM categories WHERE user_id = ? ORDER BY name`,
+        [req.user.id],
+        (err, categories) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch categories' });
+            }
+            res.json({ categories });
+        }
+    );
+});
+
+// Create category
+app.post('/api/categories', authenticateToken, (req, res) => {
+    const { name, description, color } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Category name is required' });
+    }
+
+    db.run(
+        `INSERT INTO categories (user_id, name, description, color) VALUES (?, ?, ?, ?)`,
+        [req.user.id, name, description, color || '#667eea'],
+        function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE')) {
+                    return res.status(400).json({ error: 'Category already exists' });
+                }
+                return res.status(500).json({ error: 'Failed to create category' });
+            }
+            res.json({ success: true, categoryId: this.lastID, message: 'Category created' });
+        }
+    );
 });
 
 // ============ EMAIL CONFIGURATION ============
