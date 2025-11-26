@@ -105,6 +105,212 @@ header {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Hero Section */
+.hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 100px 2rem;
+  text-align: center;
+  color: white;
+}
+
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  opacity: 0.95;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-get-started,
+.btn-view-demo {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-get-started {
+  background: white;
+  color: #667eea;
+}
+
+.btn-get-started:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.btn-view-demo {
+  background: transparent;
+  color: white;
+  border: 2px solid white;
+}
+
+.btn-view-demo:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+}
+
+/* Demo Section */
+.demo-section {
+  padding: 80px 2rem;
+  background: #f8f9fa;
+}
+
+.demo-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.demo-container h2 {
+  font-size: 2.5rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.section-subtitle {
+  font-size: 1.2rem;
+  color: #7f8c8d;
+  margin-bottom: 3rem;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.demo-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.demo-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.demo-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.demo-card h3 {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.demo-card p {
+  color: #7f8c8d;
+  line-height: 1.6;
+}
+
+.demo-cta {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 3rem;
+  border-radius: 12px;
+  color: white;
+}
+
+.demo-cta h3 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-get-started-large {
+  padding: 1.2rem 3rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  background: white;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-get-started-large:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Footer */
+.footer {
+  background: #2c3e50;
+  color: white;
+  padding: 3rem 2rem 1rem;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.footer-section h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.footer-section h4 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #ecf0f1;
+}
+
+.footer-section p {
+  color: #bdc3c7;
+  line-height: 1.6;
+}
+
+.footer-section a {
+  display: block;
+  color: #bdc3c7;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.footer-section a:hover {
+  color: white;
+}
+
+.footer-bottom {
+  text-align: center;
+  padding-top: 2rem;
+  border-top: 1px solid #34495e;
+  color: #95a5a6;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .header-container {
@@ -131,6 +337,34 @@ header {
     padding: 0.6rem 1.2rem;
     font-size: 0.85rem;
   }
+
+  .hero {
+    padding: 60px 1.5rem;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+  }
+
+  .demo-container h2 {
+    font-size: 2rem;
+  }
+
+  .demo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-cta {
+    padding: 2rem;
+  }
+
+  .demo-cta h3 {
+    font-size: 1.5rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -148,5 +382,35 @@ header {
 
   .header-actions button {
     padding: 0.5rem 1rem;
+  }
+
+  .hero {
+    padding: 40px 1rem;
+  }
+
+  .hero-title {
+    font-size: 1.75rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .btn-get-started,
+  .btn-view-demo {
+    width: 100%;
+  }
+
+  .demo-section {
+    padding: 40px 1rem;
+  }
+
+  .btn-get-started-large {
+    padding: 1rem 2rem;
+    font-size: 1rem;
   }
 }
