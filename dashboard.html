@@ -321,7 +321,12 @@
                         <form onsubmit="unlockUnlimited(event)">
                             <div class="form-group">
                                 <label for="unlockCode">Enter Unlock Code</label>
-                                <input type="text" id="unlockCode" placeholder="Enter your unlock code" required>
+                                <div style="position: relative;">
+                                    <input type="password" id="unlockCode" placeholder="Enter your unlock code" required>
+                                    <button type="button" onclick="toggleUnlockCode()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2em;">
+                                        👁️
+                                    </button>
+                                </div>
                             </div>
                             <button type="submit" class="btn-primary">Unlock Unlimited Items</button>
                         </form>
@@ -515,6 +520,19 @@
                     ${percentage >= 90 ? '<p style="color: #e74c3c;">⚠️ You are approaching your item limit!</p>' : ''}
                 `;
                 document.getElementById('unlockForm').style.display = 'block';
+            }
+        }
+
+        function toggleUnlockCode() {
+            const input = document.getElementById('unlockCode');
+            const button = event.target;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️';
             }
         }
 
