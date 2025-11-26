@@ -19,6 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadInventory();
     loadCategories();
+    
+    // Show admin link for admins
+    if (user.role === 'admin') {
+        const adminLink = document.getElementById('adminNavLink');
+        if (adminLink) {
+            adminLink.style.display = 'inline';
+        }
+    }
 });
 
 // API Helper

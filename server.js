@@ -66,6 +66,7 @@ function initializeDatabase() {
             owner_id INTEGER,
             item_limit INTEGER DEFAULT 20,
             has_unlimited BOOLEAN DEFAULT 0,
+            is_active BOOLEAN DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_login DATETIME,
             FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -80,6 +81,7 @@ function initializeDatabase() {
             db.run(`ALTER TABLE users ADD COLUMN owner_id INTEGER`, () => {});
             db.run(`ALTER TABLE users ADD COLUMN item_limit INTEGER DEFAULT 20`, () => {});
             db.run(`ALTER TABLE users ADD COLUMN has_unlimited BOOLEAN DEFAULT 0`, () => {});
+            db.run(`ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1`, () => {});
         }
     });
 
@@ -167,9 +169,29 @@ function authenticateToken(req, res, next) {
         if (err) {
             return res.status(403).json({ error: 'Invalid or expired token' });
         }
-        req.user = user;
-        next();
+        
+        // Check if user account is active (except for admin)
+        if (user.role !== 'admin') {
+            db.get('SELECT is_active FROM users WHERE id = ?', [user.id], (err, result) => {
+                if (err || !result || !result.is_active) {
+                    return res.status(403).json({ error: 'Account has been disabled. Please contact administrator.' });
+                }
+                req.user = user;
+                next();
+            });
+        } else {
+            req.user = user;
+            next();
+        }
     });
+}
+
+// Admin middleware
+function requireAdmin(req, res, next) {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
 }
 
 // ============ AUTHENTICATION ROUTES ============
@@ -258,6 +280,11 @@ app.post('/api/auth/login', async (req, res) => {
 
             // Update last login
             db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+
+            // Check if account is active
+            if (!user.is_active && user.role !== 'admin') {
+                return res.status(403).json({ error: 'Your account has been disabled. Please contact administrator.' });
+            }
 
             // Generate JWT token
             const token = jwt.sign(
@@ -437,6 +464,158 @@ app.get('/api/auth/limits', authenticateToken, (req, res) => {
                         currentCount: result.count,
                         remaining: user.has_unlimited ? 'unlimited' : Math.max(0, user.item_limit - result.count)
                     });
+                }
+            );
+        }
+    );
+});
+
+// ============ ADMIN ROUTES ============
+
+// Get all users (admin only)
+app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
+    db.all(
+        `SELECT id, username, email, role, is_active, item_limit, has_unlimited, created_at, last_login,
+        (SELECT COUNT(*) FROM inventory_items WHERE user_id = users.id) as item_count
+        FROM users 
+        WHERE role != 'admin'
+        ORDER BY created_at DESC`,
+        (err, users) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch users' });
+            }
+            res.json({ users });
+        }
+    );
+});
+
+// Toggle user active status (admin only)
+app.post('/api/admin/user/:id/toggle-status', authenticateToken, requireAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    db.get('SELECT is_active, username FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err || !user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const newStatus = user.is_active ? 0 : 1;
+        
+        db.run(
+            'UPDATE users SET is_active = ? WHERE id = ?',
+            [newStatus, userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to update user status' });
+                }
+                console.log(`✓ User ${user.username} ${newStatus ? 'enabled' : 'disabled'} by admin ${req.user.username}`);
+                res.json({ 
+                    success: true, 
+                    message: `User ${newStatus ? 'enabled' : 'disabled'} successfully`,
+                    isActive: newStatus === 1
+                });
+            }
+        );
+    });
+});
+
+// Unlock unlimited items for user (admin only)
+app.post('/api/admin/user/:id/unlock-unlimited', authenticateToken, requireAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    db.get('SELECT username FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err || !user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        db.run(
+            'UPDATE users SET has_unlimited = 1 WHERE id = ?',
+            [userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to unlock unlimited' });
+                }
+                console.log(`✓ Unlimited items unlocked for ${user.username} by admin ${req.user.username}`);
+                res.json({ success: true, message: 'Unlimited items unlocked for user' });
+            }
+        );
+    });
+});
+
+// Delete user's inventory items (admin only)
+app.delete('/api/admin/user/:id/items', authenticateToken, requireAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    db.get('SELECT username FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err || !user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        db.run(
+            'DELETE FROM inventory_items WHERE user_id = ?',
+            [userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to delete items' });
+                }
+                console.log(`✓ Deleted ${this.changes} items for user ${user.username} by admin ${req.user.username}`);
+                res.json({ 
+                    success: true, 
+                    message: `Deleted ${this.changes} items`,
+                    deletedCount: this.changes
+                });
+            }
+        );
+    });
+});
+
+// Delete user account (admin only)
+app.delete('/api/admin/user/:id', authenticateToken, requireAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    db.get('SELECT username, role FROM users WHERE id = ?', [userId], (err, user) => {
+        if (err || !user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.role === 'admin') {
+            return res.status(403).json({ error: 'Cannot delete admin accounts' });
+        }
+
+        db.run(
+            'DELETE FROM users WHERE id = ?',
+            [userId],
+            function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to delete user' });
+                }
+                console.log(`✓ User ${user.username} deleted by admin ${req.user.username}`);
+                res.json({ success: true, message: 'User deleted successfully' });
+            }
+        );
+    });
+});
+
+// Get user details with inventory (admin only)
+app.get('/api/admin/user/:id', authenticateToken, requireAdmin, (req, res) => {
+    const userId = req.params.id;
+
+    db.get(
+        `SELECT id, username, email, role, is_active, item_limit, has_unlimited, created_at, last_login
+        FROM users WHERE id = ?`,
+        [userId],
+        (err, user) => {
+            if (err || !user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            db.all(
+                'SELECT * FROM inventory_items WHERE user_id = ? ORDER BY updated_at DESC',
+                [userId],
+                (err, items) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to fetch items' });
+                    }
+                    res.json({ user, items });
                 }
             );
         }

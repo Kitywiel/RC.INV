@@ -289,6 +289,11 @@
                 <h3>Manage Inventory</h3>
                 <p>View and manage your items</p>
             </a>
+            <a href="admin.html" class="action-card" id="adminLink" style="display: none;">
+                <div class="action-icon">🛡️</div>
+                <h3>Admin Panel</h3>
+                <p>Manage users and system</p>
+            </a>
         </div>
 
         <div class="dashboard-content">
@@ -376,6 +381,11 @@
         if (user.role !== 'guest') {
             document.getElementById('settingsTabBtn').style.display = 'block';
             document.getElementById('guestManagement').classList.add('show');
+        }
+
+        // Show admin link for admins
+        if (user.role === 'admin') {
+            document.getElementById('adminLink').style.display = 'block';
         }
 
         // Load dashboard content
