@@ -14,3 +14,7 @@ services:
         value: production
       - key: PORT
         value: 10000
+      # Add these in Render Dashboard (keep them secret):
+      # SENDGRID_API_KEY - Get from https://app.sendgrid.com/settings/api_keys
+      # SENDGRID_FROM - Your verified sender email (e.g., kitiwiel@gmail.com)
+      # EMAIL_TO - Recipient email (kitiwiel@gmail.com)

@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 
 // Load environment variables
 dotenv.config();
@@ -30,29 +32,42 @@ if (!fs.existsSync(contactsDir)) {
     fs.mkdirSync(contactsDir);
 }
 
-// Email configuration - Gmail SMTP
+// Email configuration - supports Resend, SendGrid, and Gmail SMTP
 let transporter;
+let emailProvider = 'none';
+let resend;
 
-// Create transporter synchronously
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+if (process.env.RESEND_API_KEY) {
+    // Use Resend (100 emails/day free, no credit card)
+    resend = new Resend(process.env.RESEND_API_KEY);
+    emailProvider = 'resend';
+    console.log('📧 Email configured with Resend');
+} else if (process.env.SENDGRID_API_KEY) {
+    // Use SendGrid for production
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    emailProvider = 'sendgrid';
+    console.log('📧 Email configured with SendGrid');
+} else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    // Use Gmail SMTP for local development
     transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 465,
-        secure: true, // Use SSL
+        secure: true,
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS
         },
-        pool: true, // Use connection pool
+        pool: true,
         maxConnections: 5,
         maxMessages: 10,
         rateDelta: 1000,
         rateLimit: 5
     });
-    
-    console.log('📧 Email transporter configured for Gmail');
+    emailProvider = 'gmail';
+    console.log('📧 Email configured with Gmail SMTP');
 } else {
-    console.log('⚠ Email not configured - messages will be saved to files only');
+    console.log('⚠️  No email service configured - messages will be saved to files only');
+    console.log('   Add RESEND_API_KEY, SENDGRID_API_KEY, or EMAIL_USER/EMAIL_PASS');
 }
 
 // Contact form endpoint
@@ -100,43 +115,66 @@ ${message}
 `;
         fs.appendFileSync(logFile, logEntry);
 
-        // Try to send email with retry
+        // Try to send email
         let emailSent = false;
-        if (transporter) {
-            try {
-                const mailOptions = {
-                    from: process.env.EMAIL_USER || 'noreply@rc-inv.com',
-                    to: process.env.EMAIL_TO || 'kitiwiel@gmail.com',
+        const recipientEmail = process.env.EMAIL_TO || 'kitiwiel@gmail.com';
+        const htmlContent = `
+            <h2>New Contact Form Submission</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+            <h3>Message:</h3>
+            <p>${message.replace(/\n/g, '<br>')}</p>
+        `;
+        
+        try {
+            if (emailProvider === 'resend') {
+                // Use Resend API (100 emails/day free)
+                await resend.emails.send({
+                    from: process.env.RESEND_FROM || 'onboarding@resend.dev',
+                    to: recipientEmail,
+                    replyTo: email,
                     subject: `Contact Form: ${subject}`,
-                    html: `
-                    <h2>New Contact Form Submission</h2>
-                    <p><strong>Name:</strong> ${name}</p>
-                    <p><strong>Email:</strong> ${email}</p>
-                    <p><strong>Subject:</strong> ${subject}</p>
-                    <h3>Message:</h3>
-                    <p>${message.replace(/\n/g, '<br>')}</p>
-                `,
-                    replyTo: email
-                };
-
-                // Try to send with a timeout
+                    html: htmlContent
+                });
+                emailSent = true;
+                console.log(`✓ Email sent via Resend to ${recipientEmail} from ${name} (${email})`);
+                
+            } else if (emailProvider === 'sendgrid') {
+                // Use SendGrid API
+                await sgMail.send({
+                    to: recipientEmail,
+                    from: process.env.SENDGRID_FROM || recipientEmail,
+                    replyTo: email,
+                    subject: `Contact Form: ${subject}`,
+                    html: htmlContent
+                });
+                emailSent = true;
+                console.log(`✓ Email sent via SendGrid to ${recipientEmail} from ${name} (${email})`);
+                
+            } else if (emailProvider === 'gmail') {
+                // Use SMTP (Gmail)
                 await Promise.race([
-                    transporter.sendMail(mailOptions),
+                    transporter.sendMail({
+                        from: process.env.EMAIL_USER || 'noreply@rc-inv.com',
+                        to: recipientEmail,
+                        subject: `Contact Form: ${subject}`,
+                        html: htmlContent,
+                        replyTo: email
+                    }),
                     new Promise((_, reject) => 
                         setTimeout(() => reject(new Error('Email timeout after 15s')), 15000)
                     )
                 ]);
-                
                 emailSent = true;
-                console.log(`✓ Email sent to kitiwiel@gmail.com from ${name} (${email})`);
-            } catch (emailError) {
-                console.error(`❌ Email failed: ${emailError.message}`);
-                if (emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
-                    console.error('⚠️  SMTP ports may be blocked on this hosting platform');
-                    console.error('   Consider using SendGrid, Mailgun, or AWS SES instead');
-                }
-                // Continue - message is saved to file
+                console.log(`✓ Email sent via Gmail SMTP to ${recipientEmail} from ${name} (${email})`);
             }
+        } catch (emailError) {
+            console.error(`❌ Email failed: ${emailError.message}`);
+            if (emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
+                console.error('⚠️  SMTP ports blocked - use RESEND_API_KEY or SENDGRID_API_KEY');
+            }
+            // Continue - message is saved to file
         }
 
         console.log(`✓ Contact form submission from ${name} (${email})`);
