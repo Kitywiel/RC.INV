@@ -30,52 +30,30 @@ if (!fs.existsSync(contactsDir)) {
     fs.mkdirSync(contactsDir);
 }
 
-// Email configuration - using ethereal for testing or real SMTP
+// Email configuration - Gmail SMTP
 let transporter;
-async function setupEmailTransporter() {
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        // Use real Gmail credentials if provided
-        transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // Use STARTTLS
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            },
-            tls: {
-                rejectUnauthorized: true
-            },
-            connectionTimeout: 10000, // 10 seconds
-            greetingTimeout: 10000,
-            socketTimeout: 10000
-        });
-        
-        // Verify connection
-        try {
-            await transporter.verify();
-            console.log('✓ Email transporter ready');
-        } catch (error) {
-            console.error('❌ Email transporter verification failed:', error.message);
-            console.error('   Check your EMAIL_USER and EMAIL_PASS in .env');
-        }
-    } else {
-        console.log('⚠ Email not configured - messages will be saved to files only');
-        // Use SendGrid or other service (no auth required for dev)
-        // For now, we'll use a simple SMTP that requires less config
-        transporter = nodemailer.createTransport({
-            host: 'smtp.ethereal.email',
-            port: 587,
-            secure: false,
-            auth: {
-                user: 'ethereal.user@ethereal.email',
-                pass: 'ethereal.pass'
-            }
-        });
-    }
-}
 
-setupEmailTransporter();
+// Create transporter synchronously
+if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use SSL
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        },
+        pool: true, // Use connection pool
+        maxConnections: 5,
+        maxMessages: 10,
+        rateDelta: 1000,
+        rateLimit: 5
+    });
+    
+    console.log('📧 Email transporter configured for Gmail');
+} else {
+    console.log('⚠ Email not configured - messages will be saved to files only');
+}
 
 // Contact form endpoint
 app.post('/api/contact', async (req, res) => {
