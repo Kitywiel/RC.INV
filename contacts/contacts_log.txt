@@ -40,3 +40,33 @@ Message:
 test
 =====================================
 
+
+=====================================
+Date: 2025-11-26T12:29:47.438Z
+From: Test User (test@example.com)
+To: kitiwiel@gmail.com
+Subject: Test Email
+Message:
+Testing email functionality
+=====================================
+
+
+=====================================
+Date: 2025-11-26T12:34:20.187Z
+From: Test User (test@example.com)
+To: kitiwiel@gmail.com
+Subject: Connection Test
+Message:
+Testing improved email configuration
+=====================================
+
+
+=====================================
+Date: 2025-11-26T12:38:14.713Z
+From: Test SSL (test@example.com)
+To: kitiwiel@gmail.com
+Subject: SSL Test
+Message:
+Testing Gmail with SSL port 465
+=====================================
+

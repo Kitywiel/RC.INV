@@ -1,0 +1,8 @@
+{
+  "timestamp": "2025-11-26T12:29:47.438Z",
+  "name": "Test User",
+  "email": "test@example.com",
+  "subject": "Test Email",
+  "message": "Testing email functionality",
+  "recipientEmail": "kitiwiel@gmail.com"
+}

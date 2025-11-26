@@ -1,0 +1,8 @@
+{
+  "timestamp": "2025-11-26T12:38:14.713Z",
+  "name": "Test SSL",
+  "email": "test@example.com",
+  "subject": "SSL Test",
+  "message": "Testing Gmail with SSL port 465",
+  "recipientEmail": "kitiwiel@gmail.com"
+}

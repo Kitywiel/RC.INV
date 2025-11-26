@@ -100,13 +100,15 @@ ${message}
 `;
         fs.appendFileSync(logFile, logEntry);
 
-        // Try to send email
-        try {
-            const mailOptions = {
-                from: process.env.EMAIL_USER || 'noreply@rc-inv.com',
-                to: process.env.EMAIL_TO || 'kitiwiel@gmail.com',
-                subject: `Contact Form: ${subject}`,
-                html: `
+        // Try to send email with retry
+        let emailSent = false;
+        if (transporter) {
+            try {
+                const mailOptions = {
+                    from: process.env.EMAIL_USER || 'noreply@rc-inv.com',
+                    to: process.env.EMAIL_TO || 'kitiwiel@gmail.com',
+                    subject: `Contact Form: ${subject}`,
+                    html: `
                     <h2>New Contact Form Submission</h2>
                     <p><strong>Name:</strong> ${name}</p>
                     <p><strong>Email:</strong> ${email}</p>
@@ -114,15 +116,27 @@ ${message}
                     <h3>Message:</h3>
                     <p>${message.replace(/\n/g, '<br>')}</p>
                 `,
-                replyTo: email
-            };
+                    replyTo: email
+                };
 
-            await transporter.sendMail(mailOptions);
-            console.log(`✓ Email sent to kitiwiel@gmail.com from ${name} (${email})`);
-        } catch (emailError) {
-            console.log('Email sending failed (saved to file instead):', emailError.message);
-            console.log('To enable email: Configure EMAIL_USER and EMAIL_PASS in .env');
-            // Still return success since message is saved
+                // Try to send with a timeout
+                await Promise.race([
+                    transporter.sendMail(mailOptions),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Email timeout after 15s')), 15000)
+                    )
+                ]);
+                
+                emailSent = true;
+                console.log(`✓ Email sent to kitiwiel@gmail.com from ${name} (${email})`);
+            } catch (emailError) {
+                console.error(`❌ Email failed: ${emailError.message}`);
+                if (emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
+                    console.error('⚠️  SMTP ports may be blocked on this hosting platform');
+                    console.error('   Consider using SendGrid, Mailgun, or AWS SES instead');
+                }
+                // Continue - message is saved to file
+            }
         }
 
         console.log(`✓ Contact form submission from ${name} (${email})`);
