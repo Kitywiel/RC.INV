@@ -13,7 +13,11 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -57,10 +61,15 @@ setupEmailTransporter();
 
 // Contact form endpoint
 app.post('/api/contact', async (req, res) => {
+    console.log('📧 Contact form request received');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    
     const { name, email, subject, message } = req.body;
 
     // Validate input
     if (!name || !email || !subject || !message) {
+        console.log('❌ Validation failed - missing fields');
         return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -117,10 +126,12 @@ ${message}
         } catch (emailError) {
             console.log('Email sending failed (saved to file instead):', emailError.message);
             console.log('To enable email: Configure EMAIL_USER and EMAIL_PASS in .env');
+            // Still return success since message is saved
         }
 
-        console.log(`Contact form submission received from ${name} (${email})`);
-        console.log(`Saved to: ${filename}`);
+        console.log(`✓ Contact form submission from ${name} (${email})`);
+        console.log(`✓ Saved to: ${filename}`);
+        console.log(`✓ Environment: ${process.env.NODE_ENV}`);
         
         res.json({ success: true, message: 'Message sent successfully!' });
     } catch (error) {
