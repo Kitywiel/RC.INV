@@ -9,7 +9,6 @@ const sgMail = require('@sendgrid/mail');
 const { Resend } = require('resend');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 
 // Load environment variables
@@ -19,6 +18,12 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Create necessary directories
+const userInfoDir = path.join(__dirname, 'user_info');
+if (!fs.existsSync(userInfoDir)) {
+    fs.mkdirSync(userInfoDir);
+}
+
 // Middleware
 app.use(cors({
     origin: '*',
@@ -27,24 +32,14 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
-    secret: JWT_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === 'production' }
-}));
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));
 
-// Create necessary directories
+// Create contacts directory
 const contactsDir = path.join(__dirname, 'contacts');
-const userInfoDir = path.join(__dirname, 'user_info');
 if (!fs.existsSync(contactsDir)) {
     fs.mkdirSync(contactsDir);
-}
-if (!fs.existsSync(userInfoDir)) {
-    fs.mkdirSync(userInfoDir);
 }
 
 // Initialize SQLite database
