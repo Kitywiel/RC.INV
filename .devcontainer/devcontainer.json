@@ -1,0 +1,28 @@
+{
+  "name": "RC.INV Development",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  
+  // Mount the database directory to a persistent volume
+  "mounts": [
+    "source=rcinv-database,target=${containerWorkspaceFolder}/user_info,type=volume"
+  ],
+  
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  
+  "postCreateCommand": "npm install",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  
+  "forwardPorts": [10000]
+}
