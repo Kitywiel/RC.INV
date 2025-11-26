@@ -247,7 +247,10 @@ async function quickAdjust(amount) {
     const itemId = document.getElementById('adjustItemId').value;
     const item = allItems.find(i => i.id == itemId);
     
-    if (!item) return;
+    if (!item) {
+        alert('Item not found. Please refresh the page.');
+        return;
+    }
 
     // Check if removing would go below 0
     if (amount < 0 && item.quantity + amount < 0) {
@@ -265,12 +268,11 @@ async function quickAdjust(amount) {
         });
 
         if (response && response.success) {
-            // Update the display without closing modal
-            const item = allItems.find(i => i.id == itemId);
-            if (item) {
-                item.quantity = response.newQuantity;
-                document.getElementById('currentQuantity').textContent = `${response.newQuantity} ${item.unit}`;
-            }
+            // Update the local item and display
+            item.quantity = response.newQuantity;
+            document.getElementById('currentQuantity').textContent = `${response.newQuantity} ${item.unit}`;
+            
+            // Reload to sync with server
             loadInventory();
             loadStats();
         } else {
