@@ -169,28 +169,43 @@
                 <h2>Adjust Quantity</h2>
                 <span class="close" onclick="closeAdjustModal()">&times;</span>
             </div>
-            <form id="adjustForm" onsubmit="adjustQuantity(event)">
+            <div style="padding: 30px;">
                 <p><strong id="adjustItemName"></strong></p>
                 <p>Current Quantity: <span id="currentQuantity"></span></p>
 
-                <div class="form-group">
-                    <label for="quantityChange">Change Amount</label>
-                    <input type="number" id="quantityChange" placeholder="+ to add, - to remove" required>
-                    <small>Enter positive number to add, negative to remove</small>
+                <div class="adjust-actions">
+                    <button type="button" class="btn-adjust-action btn-remove" onclick="quickAdjust(-1)">
+                        <span class="adjust-icon">➖</span>
+                        <span>Remove 1</span>
+                    </button>
+                    <button type="button" class="btn-adjust-action btn-add" onclick="quickAdjust(1)">
+                        <span class="adjust-icon">➕</span>
+                        <span>Add 1</span>
+                    </button>
                 </div>
 
-                <div class="form-group">
-                    <label for="adjustNotes">Notes (optional)</label>
-                    <input type="text" id="adjustNotes" placeholder="Reason for adjustment">
-                </div>
+                <div style="text-align: center; margin: 20px 0; color: #7f8c8d;">OR</div>
 
-                <input type="hidden" id="adjustItemId">
+                <form id="adjustForm" onsubmit="adjustQuantity(event)">
+                    <div class="form-group">
+                        <label for="quantityChange">Custom Amount</label>
+                        <input type="number" id="quantityChange" placeholder="Enter amount (+ or -)">
+                        <small>Positive to add, negative to remove</small>
+                    </div>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeAdjustModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Adjust</button>
-                </div>
-            </form>
+                    <div class="form-group">
+                        <label for="adjustNotes">Notes (optional)</label>
+                        <input type="text" id="adjustNotes" placeholder="Reason for adjustment">
+                    </div>
+
+                    <input type="hidden" id="adjustItemId">
+
+                    <div class="modal-footer" style="padding: 20px 0 0 0; border: none;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAdjustModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Apply Custom</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

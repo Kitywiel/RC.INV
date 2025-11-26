@@ -88,18 +88,24 @@ function displayInventory(items) {
 
         return `
             <tr data-id="${item.id}">
-                <td><strong>${escapeHtml(item.name)}</strong>${item.description ? '<br><small>' + escapeHtml(item.description) + '</small>' : ''}</td>
-                <td>${escapeHtml(item.category || '-')}</td>
-                <td>${escapeHtml(item.sku || '-')}</td>
-                <td class="${quantityClass}">${item.quantity} ${isLowStock ? '⚠️' : ''}</td>
+                <td>
+                    <strong>${escapeHtml(item.name)}</strong>
+                    ${item.description ? '<br><small style="color: #7f8c8d;">' + escapeHtml(item.description) + '</small>' : ''}
+                </td>
+                <td><span class="badge">${escapeHtml(item.category || 'Uncategorized')}</span></td>
+                <td><code>${escapeHtml(item.sku || '-')}</code></td>
+                <td class="${quantityClass}">
+                    <strong>${item.quantity}</strong> 
+                    ${isLowStock ? '<span style="color: #e74c3c; font-size: 1.2em;">⚠️</span>' : ''}
+                </td>
                 <td>${escapeHtml(item.unit)}</td>
-                <td>$${item.price.toFixed(2)}</td>
-                <td>$${totalValue}</td>
-                <td>${escapeHtml(item.location || '-')}</td>
+                <td><strong>$${item.price.toFixed(2)}</strong></td>
+                <td><strong style="color: #27ae60;">$${totalValue}</strong></td>
+                <td><span class="badge-location">${escapeHtml(item.location || '-')}</span></td>
                 <td class="actions-cell">
-                    <button class="btn btn-small btn-adjust" onclick="showAdjustModal(${item.id})">📊 Adjust</button>
-                    <button class="btn btn-small btn-edit" onclick="editItem(${item.id})">✏️ Edit</button>
-                    <button class="btn btn-small btn-delete" onclick="deleteItem(${item.id})">🗑️</button>
+                    <button class="btn btn-small btn-adjust" onclick="showAdjustModal(${item.id})" title="Adjust Quantity">📊</button>
+                    <button class="btn btn-small btn-edit" onclick="editItem(${item.id})" title="Edit Item">✏️</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteItem(${item.id})" title="Delete Item">🗑️</button>
                 </td>
             </tr>
         `;
@@ -231,17 +237,63 @@ function showAdjustModal(id) {
     document.getElementById('adjustItemId').value = item.id;
     document.getElementById('adjustItemName').textContent = item.name;
     document.getElementById('currentQuantity').textContent = `${item.quantity} ${item.unit}`;
-    document.getElementById('adjustForm').reset();
+    document.getElementById('quantityChange').value = '';
+    document.getElementById('adjustNotes').value = '';
     document.getElementById('adjustModal').style.display = 'block';
 }
 
-// Adjust Quantity
+// Quick Adjust (Add/Remove 1)
+async function quickAdjust(amount) {
+    const itemId = document.getElementById('adjustItemId').value;
+    const item = allItems.find(i => i.id == itemId);
+    
+    if (!item) return;
+
+    // Check if removing would go below 0
+    if (amount < 0 && item.quantity + amount < 0) {
+        alert('Cannot reduce quantity below 0');
+        return;
+    }
+
+    const action = amount > 0 ? 'Added' : 'Removed';
+    const notes = `${action} ${Math.abs(amount)} unit(s)`;
+
+    try {
+        const response = await apiCall(`/api/inventory/${itemId}/adjust`, {
+            method: 'POST',
+            body: JSON.stringify({ quantity: amount, notes })
+        });
+
+        if (response && response.success) {
+            // Update the display without closing modal
+            const item = allItems.find(i => i.id == itemId);
+            if (item) {
+                item.quantity = response.newQuantity;
+                document.getElementById('currentQuantity').textContent = `${response.newQuantity} ${item.unit}`;
+            }
+            loadInventory();
+            loadStats();
+        } else {
+            alert(response.error || 'Failed to adjust quantity');
+        }
+    } catch (error) {
+        console.error('Error adjusting quantity:', error);
+        alert('Failed to adjust quantity');
+    }
+}
+
+// Adjust Quantity (Custom Amount)
 async function adjustQuantity(event) {
     event.preventDefault();
 
     const itemId = document.getElementById('adjustItemId').value;
     const quantityChange = parseInt(document.getElementById('quantityChange').value);
     const notes = document.getElementById('adjustNotes').value;
+
+    if (!quantityChange || quantityChange === 0) {
+        alert('Please enter a valid quantity change');
+        return;
+    }
 
     try {
         const response = await apiCall(`/api/inventory/${itemId}/adjust`, {
