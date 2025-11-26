@@ -107,8 +107,8 @@ ${message}
         // Try to send email
         try {
             const mailOptions = {
-                from: email,
-                to: 'kitiwiel@gmail.com',
+                from: process.env.EMAIL_USER || 'noreply@rc-inv.com',
+                to: process.env.EMAIL_TO || 'kitiwiel@gmail.com',
                 subject: `Contact Form: ${subject}`,
                 html: `
                     <h2>New Contact Form Submission</h2>
