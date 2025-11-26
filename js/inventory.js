@@ -12,12 +12,21 @@ document.getElementById('userName').textContent = user.username;
 // Global variables
 let allItems = [];
 let categories = [];
+let isReadOnly = user.role === 'guest';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadInventory();
     loadCategories();
+    
+    // Show guests link for owners
+    if (user.role !== 'guest') {
+        const guestsLink = document.getElementById('guestsLink');
+        if (guestsLink) {
+            guestsLink.style.display = 'inline';
+        }
+    }
 });
 
 // API Helper
@@ -63,12 +72,35 @@ async function loadInventory() {
         const data = await apiCall('/api/inventory');
         if (data && data.items) {
             allItems = data.items;
+            isReadOnly = data.isReadOnly || false;
             displayInventory(allItems);
+            updateUIForReadOnly();
         }
     } catch (error) {
         console.error('Error loading inventory:', error);
         document.getElementById('inventoryTableBody').innerHTML = 
             '<tr><td colspan="9" class="loading-cell">Failed to load inventory</td></tr>';
+    }
+}
+
+// Update UI for read-only mode
+function updateUIForReadOnly() {
+    if (isReadOnly) {
+        // Hide add button
+        const addButton = document.querySelector('.toolbar-actions .btn-primary');
+        if (addButton) {
+            addButton.style.display = 'none';
+        }
+        
+        // Add read-only badge
+        const userName = document.getElementById('userName');
+        if (userName && !document.getElementById('readOnlyBadge')) {
+            const badge = document.createElement('span');
+            badge.id = 'readOnlyBadge';
+            badge.style.cssText = 'background: #95a5a6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px;';
+            badge.textContent = 'READ ONLY';
+            userName.parentElement.insertBefore(badge, userName.nextSibling);
+        }
     }
 }
 
@@ -103,9 +135,11 @@ function displayInventory(items) {
                 <td><strong style="color: #27ae60;">$${totalValue}</strong></td>
                 <td><span class="badge-location">${escapeHtml(item.location || '-')}</span></td>
                 <td class="actions-cell">
+                    ${isReadOnly ? '<span style="color: #95a5a6;">View Only</span>' : `
                     <button class="btn btn-small btn-adjust" onclick="showAdjustModal(${item.id})" title="Adjust Quantity">📊</button>
                     <button class="btn btn-small btn-edit" onclick="editItem(${item.id})" title="Edit Item">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deleteItem(${item.id})" title="Delete Item">🗑️</button>
+                    `}
                 </td>
             </tr>
         `;

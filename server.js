@@ -62,14 +62,20 @@ function initializeDatabase() {
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
+            role TEXT DEFAULT 'owner',
+            owner_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            last_login DATETIME
+            last_login DATETIME,
+            FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
         )
     `, (err) => {
         if (err) {
             console.error('❌ Error creating users table:', err);
         } else {
             console.log('✓ Users table ready');
+            // Add role column if it doesn't exist (for existing databases)
+            db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'owner'`, () => {});
+            db.run(`ALTER TABLE users ADD COLUMN owner_id INTEGER`, () => {});
         }
     });
 
@@ -251,12 +257,18 @@ app.post('/api/auth/login', async (req, res) => {
 
             // Generate JWT token
             const token = jwt.sign(
-                { id: user.id, username: user.username, email: user.email },
+                { 
+                    id: user.id, 
+                    username: user.username, 
+                    email: user.email,
+                    role: user.role || 'owner',
+                    owner_id: user.owner_id
+                },
                 JWT_SECRET,
                 { expiresIn: '7d' }
             );
 
-            console.log(`✓ User logged in: ${username}`);
+            console.log(`✓ User logged in: ${username} (${user.role || 'owner'})`);
             
             res.json({
                 success: true,
@@ -264,7 +276,9 @@ app.post('/api/auth/login', async (req, res) => {
                 user: {
                     id: user.id,
                     username: user.username,
-                    email: user.email
+                    email: user.email,
+                    role: user.role || 'owner',
+                    owner_id: user.owner_id
                 }
             });
         });
@@ -292,18 +306,98 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' });
 });
 
+// Create guest account (only for owners)
+app.post('/api/auth/create-guest', authenticateToken, async (req, res) => {
+    const { username, email, password } = req.body;
+
+    // Check if user is an owner (not a guest)
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot create guest accounts' });
+    }
+
+    if (!username || !email || !password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        db.run(
+            `INSERT INTO users (username, email, password, role, owner_id) VALUES (?, ?, ?, ?, ?)`,
+            [username, email, hashedPassword, 'guest', req.user.id],
+            function(err) {
+                if (err) {
+                    if (err.message.includes('UNIQUE constraint')) {
+                        return res.status(400).json({ error: 'Username or email already exists' });
+                    }
+                    return res.status(500).json({ error: 'Failed to create guest account' });
+                }
+                res.json({ 
+                    success: true, 
+                    message: 'Guest account created successfully',
+                    guestId: this.lastID
+                });
+            }
+        );
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Get all guest accounts for owner
+app.get('/api/auth/guests', authenticateToken, (req, res) => {
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    db.all(
+        `SELECT id, username, email, created_at, last_login FROM users WHERE owner_id = ? AND role = 'guest'`,
+        [req.user.id],
+        (err, guests) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to fetch guests' });
+            }
+            res.json({ guests });
+        }
+    );
+});
+
+// Delete guest account
+app.delete('/api/auth/guest/:id', authenticateToken, (req, res) => {
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    db.run(
+        `DELETE FROM users WHERE id = ? AND owner_id = ? AND role = 'guest'`,
+        [req.params.id, req.user.id],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to delete guest' });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Guest not found' });
+            }
+            res.json({ success: true, message: 'Guest account deleted' });
+        }
+    );
+});
+
 // ============ INVENTORY MANAGEMENT ROUTES ============
 
 // Get all inventory items for user
 app.get('/api/inventory', authenticateToken, (req, res) => {
+    // If guest, show owner's inventory; if owner, show own inventory
+    const userId = req.user.role === 'guest' ? req.user.owner_id : req.user.id;
+    
     db.all(
         `SELECT * FROM inventory_items WHERE user_id = ? ORDER BY updated_at DESC`,
-        [req.user.id],
+        [userId],
         (err, items) => {
             if (err) {
                 return res.status(500).json({ error: 'Failed to fetch inventory' });
             }
-            res.json({ items });
+            res.json({ items, isReadOnly: req.user.role === 'guest' });
         }
     );
 });
@@ -311,21 +405,22 @@ app.get('/api/inventory', authenticateToken, (req, res) => {
 // Get inventory statistics (MUST be before /:id route)
 app.get('/api/inventory/stats', authenticateToken, (req, res) => {
     const stats = {};
+    const userId = req.user.role === 'guest' ? req.user.owner_id : req.user.id;
 
     // Total items
-    db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?`, [req.user.id], (err, result) => {
+    db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ?`, [userId], (err, result) => {
         stats.totalItems = result ? result.count : 0;
 
         // Total value
-        db.get(`SELECT SUM(quantity * price) as value FROM inventory_items WHERE user_id = ?`, [req.user.id], (err, result) => {
+        db.get(`SELECT SUM(quantity * price) as value FROM inventory_items WHERE user_id = ?`, [userId], (err, result) => {
             stats.totalValue = result && result.value ? result.value.toFixed(2) : '0.00';
 
             // Low stock items
-            db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ? AND quantity <= min_quantity AND min_quantity > 0`, [req.user.id], (err, result) => {
+            db.get(`SELECT COUNT(*) as count FROM inventory_items WHERE user_id = ? AND quantity <= min_quantity AND min_quantity > 0`, [userId], (err, result) => {
                 stats.lowStockItems = result ? result.count : 0;
 
                 // Categories count
-                db.get(`SELECT COUNT(DISTINCT category) as count FROM inventory_items WHERE user_id = ? AND category IS NOT NULL`, [req.user.id], (err, result) => {
+                db.get(`SELECT COUNT(DISTINCT category) as count FROM inventory_items WHERE user_id = ? AND category IS NOT NULL`, [userId], (err, result) => {
                     stats.totalCategories = result ? result.count : 0;
 
                     res.json({ stats });
@@ -354,6 +449,11 @@ app.get('/api/inventory/:id', authenticateToken, (req, res) => {
 
 // Create new inventory item
 app.post('/api/inventory', authenticateToken, (req, res) => {
+    // Block guests from creating items
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot modify inventory' });
+    }
+
     const { name, description, category, quantity, unit, price, sku, location, min_quantity, image_url } = req.body;
 
     if (!name) {
@@ -388,6 +488,11 @@ app.post('/api/inventory', authenticateToken, (req, res) => {
 
 // Update inventory item
 app.put('/api/inventory/:id', authenticateToken, (req, res) => {
+    // Block guests from updating items
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot modify inventory' });
+    }
+
     const { name, description, category, quantity, unit, price, sku, location, min_quantity, image_url } = req.body;
 
     // First get old item for transaction log
@@ -437,6 +542,11 @@ app.put('/api/inventory/:id', authenticateToken, (req, res) => {
 
 // Delete inventory item
 app.delete('/api/inventory/:id', authenticateToken, (req, res) => {
+    // Block guests from deleting items
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot modify inventory' });
+    }
+
     db.run(
         `DELETE FROM inventory_items WHERE id = ? AND user_id = ?`,
         [req.params.id, req.user.id],
@@ -455,6 +565,11 @@ app.delete('/api/inventory/:id', authenticateToken, (req, res) => {
 
 // Adjust inventory quantity (add/remove stock)
 app.post('/api/inventory/:id/adjust', authenticateToken, (req, res) => {
+    // Block guests from adjusting items
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot modify inventory' });
+    }
+
     const { quantity, notes } = req.body;
 
     if (quantity === undefined || quantity === 0) {
@@ -532,6 +647,11 @@ app.get('/api/categories', authenticateToken, (req, res) => {
 
 // Create category
 app.post('/api/categories', authenticateToken, (req, res) => {
+    // Block guests from creating categories
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Guests cannot modify categories' });
+    }
+
     const { name, description, color } = req.body;
 
     if (!name) {
