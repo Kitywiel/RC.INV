@@ -19,14 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadInventory();
     loadCategories();
-    
-    // Show guests link for owners
-    if (user.role !== 'guest') {
-        const guestsLink = document.getElementById('guestsLink');
-        if (guestsLink) {
-            guestsLink.style.display = 'inline';
-        }
-    }
 });
 
 // API Helper

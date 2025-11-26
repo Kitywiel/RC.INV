@@ -145,6 +145,132 @@
             color: #7f8c8d;
             margin: 0;
         }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            padding: 15px 30px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #guestManagement {
+            display: none;
+        }
+
+        #guestManagement.show {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .guest-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .guest-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .guest-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +291,53 @@
             </a>
         </div>
 
+        <div class="dashboard-content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('overview')">Overview</button>
+                <button class="tab" id="settingsTab" onclick="switchTab('settings')" style="display: none;">Settings</button>
+            </div>
+
+            <div id="overviewTab" class="tab-content active">
+                <div id="dashboardContent">
+                    <div class="loading">Loading your dashboard...</div>
+                </div>
+            </div>
+
+            <div id="settingsTab" class="tab-content">
+                <h2>Account Settings</h2>
+                
+                <div id="guestManagement" style="margin-top: 30px;">
+                    <h3>Guest Account Management</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">Create read-only accounts that can view your inventory but cannot make changes.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 30px;">
+                        <h4>Create New Guest Account</h4>
+                        <form id="createGuestForm" onsubmit="createGuest(event)">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="guestUsername">Username *</label>
+                                    <input type="text" id="guestUsername" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="guestEmail">Email *</label>
+                                    <input type="email" id="guestEmail" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="guestPassword">Password *</label>
+                                <input type="password" id="guestPassword" required minlength="6">
+                                <small style="color: #7f8c8d;">Password must be at least 6 characters</small>
+                            </div>
+                            <button type="submit" class="btn-primary">Create Guest Account</button>
+                        </form>
+                    </div>
+
+                    <h4>Current Guest Accounts</h4>
+                    <div id="guestList"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="dashboard-content" id="dashboardContent">
             <div class="loading">Loading your dashboard...</div>
         </div>
@@ -181,6 +354,12 @@
 
         // Display user info
         document.getElementById('username').textContent = user.username;
+
+        // Show settings tab only for owners
+        if (user.role !== 'guest') {
+            document.getElementById('settingsTab').style.display = 'block';
+            document.getElementById('guestManagement').classList.add('show');
+        }
 
         // Load dashboard content
         loadDashboard();
@@ -251,6 +430,156 @@
                 localStorage.removeItem('user');
                 window.location.href = '/start.html';
             }
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            if (tabName === 'overview') {
+                tabs[0].classList.add('active');
+                document.getElementById('overviewTab').classList.add('active');
+            } else if (tabName === 'settings') {
+                tabs[1].classList.add('active');
+                document.getElementById('settingsTab').classList.add('active');
+                loadGuests();
+            }
+        }
+
+        // Guest management functions
+        async function apiCall(endpoint, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            const response = await fetch(endpoint, { ...defaultOptions, ...options });
+            
+            if (response.status === 401 || response.status === 403) {
+                alert('Session expired. Please login again.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/user/login.html';
+                return null;
+            }
+
+            return response.json();
+        }
+
+        async function loadGuests() {
+            if (user.role === 'guest') return;
+
+            try {
+                const data = await apiCall('/api/auth/guests');
+                if (data && data.guests) {
+                    displayGuests(data.guests);
+                }
+            } catch (error) {
+                console.error('Error loading guests:', error);
+            }
+        }
+
+        function displayGuests(guests) {
+            const container = document.getElementById('guestList');
+            
+            if (guests.length === 0) {
+                container.innerHTML = '<p style="color: #7f8c8d; text-align: center; padding: 20px;">No guest accounts yet. Create one above!</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="guest-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${guests.map(guest => `
+                            <tr>
+                                <td><strong>${escapeHtml(guest.username)}</strong></td>
+                                <td>${escapeHtml(guest.email)}</td>
+                                <td>${formatDate(guest.created_at)}</td>
+                                <td>${guest.last_login ? formatDate(guest.last_login) : 'Never'}</td>
+                                <td>
+                                    <button class="btn-small btn-delete" onclick="deleteGuest(${guest.id}, '${escapeHtml(guest.username)}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        async function createGuest(event) {
+            event.preventDefault();
+
+            const guestData = {
+                username: document.getElementById('guestUsername').value.trim(),
+                email: document.getElementById('guestEmail').value.trim(),
+                password: document.getElementById('guestPassword').value
+            };
+
+            try {
+                const response = await apiCall('/api/auth/create-guest', {
+                    method: 'POST',
+                    body: JSON.stringify(guestData)
+                });
+
+                if (response && response.success) {
+                    alert('Guest account created successfully!');
+                    document.getElementById('createGuestForm').reset();
+                    loadGuests();
+                } else {
+                    alert(response.error || 'Failed to create guest account');
+                }
+            } catch (error) {
+                console.error('Error creating guest:', error);
+                alert('Failed to create guest account');
+            }
+        }
+
+        async function deleteGuest(id, username) {
+            if (!confirm(`Are you sure you want to delete guest account "${username}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall(`/api/auth/guest/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.success) {
+                    loadGuests();
+                } else {
+                    alert(response.error || 'Failed to delete guest');
+                }
+            } catch (error) {
+                console.error('Error deleting guest:', error);
+                alert('Failed to delete guest');
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
