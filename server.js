@@ -599,7 +599,9 @@ app.post('/api/auth/login', async (req, res) => {
                 username: user.username,
                 email: user.email,
                 role: user.role || 'user',
-                owner_id: user.owner_id
+                owner_id: user.owner_id,
+                item_limit: user.item_limit || 20,
+                has_unlimited: user.has_unlimited || 0
             }
         });
     } catch (error) {
@@ -611,7 +613,7 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user (protected route example)
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
     try {
-        const user = await dbGetUser('SELECT id, username, email, created_at, last_login FROM users WHERE id = ?', [req.user.id]);
+        const user = await dbGetUser('SELECT id, username, email, role, item_limit, has_unlimited, created_at, last_login FROM users WHERE id = ?', [req.user.id]);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
