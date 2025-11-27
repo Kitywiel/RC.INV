@@ -14,7 +14,15 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: USE_GOOGLE_SHEETS
+        value: true
       # Add these in Render Dashboard (keep them secret):
+      # GOOGLE_SPREADSHEET_ID
+      # GOOGLE_PROJECT_ID
+      # GOOGLE_PRIVATE_KEY_ID
+      # GOOGLE_PRIVATE_KEY (the full private key with \n for newlines)
+      # GOOGLE_CLIENT_EMAIL
+      # GOOGLE_CLIENT_ID
       # SENDGRID_API_KEY - Get from https://app.sendgrid.com/settings/api_keys
       # SENDGRID_FROM - Your verified sender email (e.g., kitiwiel@gmail.com)
       # EMAIL_TO - Recipient email (kitiwiel@gmail.com)

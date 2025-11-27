@@ -112,7 +112,6 @@ function initializeDatabase() {
         db.run(`ALTER TABLE users ADD COLUMN item_limit INTEGER DEFAULT 20`, () => {});
         db.run(`ALTER TABLE users ADD COLUMN has_unlimited BOOLEAN DEFAULT 0`, () => {});
         db.run(`ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1`, () => {});
-        createDefaultAdmin();
     });
 
     // Inventory items table
@@ -183,47 +182,6 @@ function initializeDatabase() {
             return;
         }
         console.log('✓ Inventory transactions table ready');
-    });
-}
-
-// Create default admin account
-function createDefaultAdmin() {
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@rcinv.local';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    
-    // Check if admin already exists
-    db.get('SELECT id FROM users WHERE username = ? OR role = ?', [adminUsername, 'admin'], (err, user) => {
-        if (err) {
-            console.error('Error checking for admin:', err);
-            return;
-        }
-        
-        if (!user) {
-            // Create admin account
-            bcrypt.hash(adminPassword, 10, (err, hash) => {
-                if (err) {
-                    console.error('Error hashing admin password:', err);
-                    return;
-                }
-                
-                db.run(`INSERT INTO users (username, email, password, role, item_limit, has_unlimited, is_active) 
-                        VALUES (?, ?, ?, 'admin', 20, 1, 1)`,
-                    [adminUsername, adminEmail, hash],
-                    function(err) {
-                        if (err) {
-                            console.error('Error creating admin:', err.message);
-                        } else {
-                            console.log('✓ Default admin account created');
-                            console.log(`  Username: ${adminUsername}`);
-                            console.log(`  Password: ${adminPassword}`);
-                        }
-                    }
-                );
-            });
-        } else {
-            console.log('✓ Admin account already exists');
-        }
     });
 }
 

@@ -18,48 +18,7 @@
             padding: 20px;
         }
 
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            color: #e74c3c;
-            margin: 0;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-info span {
-            color: #2c3e50;
-            font-weight: 500;
-        }
-
-        .btn-logout {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-logout:hover {
-            background: #c0392b;
-            transform: translateY(-2px);
-        }
+        /* Header styles are now inherited from main_settings.css */
 
         .dashboard-content {
             background: white;
@@ -275,13 +234,20 @@
 </head>
 <body>
     <div class="dashboard-container">
-        <div class="header">
-            <h1>RC.INV Dashboard</h1>
-            <div class="user-info">
-                <span>Welcome, <strong id="username">Loading...</strong></span>
+        <header class="header">
+            <div class="header-left">
+                <h1>RC.INV</h1>
+                <nav class="nav-menu">
+                    <a href="dashboard.html" class="active">Dashboard</a>
+                    <a href="inventory.html">Inventory</a>
+                    <a href="admin.html" id="adminNavLink" style="display: none;">Admin Panel</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span class="user-name" id="username">Loading...</span>
                 <button class="btn-logout" onclick="logout()">Logout</button>
             </div>
-        </div>
+        </header>
 
         <div class="quick-actions" style="margin-bottom: 30px;">
             <a href="inventory.html" class="action-card">

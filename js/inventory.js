@@ -78,6 +78,11 @@ async function loadStats() {
             document.getElementById('totalValue').textContent = '$' + data.stats.totalValue;
             document.getElementById('lowStock').textContent = data.stats.lowStockItems;
             document.getElementById('totalCategories').textContent = data.stats.totalCategories;
+            
+            // Update item limit
+            const currentCount = data.stats.totalItems;
+            const itemLimit = user.has_unlimited ? '∞' : (user.item_limit || 20);
+            document.getElementById('itemLimit').textContent = currentCount + ' / ' + itemLimit;
         } else {
             console.warn('No stats data in response');
         }
