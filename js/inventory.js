@@ -40,7 +40,22 @@ async function apiCall(endpoint, options = {}) {
 
     const response = await fetch(endpoint, { ...defaultOptions, ...options });
     
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/user/login.html';
+        return null;
+    }
+
+    // For 403, check if it's a limit error or auth error
+    if (response.status === 403) {
+        const data = await response.json();
+        // If it's a limit error, return the data so it can be handled
+        if (data.limitReached) {
+            return data;
+        }
+        // Otherwise it's an auth error
         alert('Session expired. Please login again.');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -54,15 +69,20 @@ async function apiCall(endpoint, options = {}) {
 // Load Statistics
 async function loadStats() {
     try {
+        console.log('Loading stats...');
         const data = await apiCall('/api/inventory/stats');
+        console.log('Stats data received:', data);
         if (data && data.stats) {
+            console.log('Updating stats elements:', data.stats);
             document.getElementById('totalItems').textContent = data.stats.totalItems;
             document.getElementById('totalValue').textContent = '$' + data.stats.totalValue;
             document.getElementById('lowStock').textContent = data.stats.lowStockItems;
             document.getElementById('totalCategories').textContent = data.stats.totalCategories;
+        } else {
+            console.warn('No stats data in response');
         }
     } catch (error) {
-        console.error('Error loading stats:', error);
+        console.error('Stats loading failed:', error);
     }
 }
 
@@ -77,9 +97,8 @@ async function loadInventory() {
             updateUIForReadOnly();
         }
     } catch (error) {
-        console.error('Error loading inventory:', error);
         document.getElementById('inventoryTableBody').innerHTML = 
-            '<tr><td colspan="9" class="loading-cell">Failed to load inventory</td></tr>';
+            '<tr><td colspan="9" class="loading-cell">Failed to load inventory. Please refresh the page.</td></tr>';
     }
 }
 
@@ -109,7 +128,7 @@ function displayInventory(items) {
     const tbody = document.getElementById('inventoryTableBody');
     
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="loading-cell">No items found. Click "Add Item" to get started!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading-cell">No items found. Click "Add Item" to get started!</td></tr>';
         return;
     }
 
@@ -117,6 +136,7 @@ function displayInventory(items) {
         const totalValue = (item.quantity * item.price).toFixed(2);
         const isLowStock = item.min_quantity > 0 && item.quantity <= item.min_quantity;
         const quantityClass = isLowStock ? 'low-stock' : '';
+        const usedQty = item.used_quantity || 0;
 
         return `
             <tr data-id="${item.id}">
@@ -130,15 +150,16 @@ function displayInventory(items) {
                     <strong>${item.quantity}</strong> 
                     ${isLowStock ? '<span style="color: #e74c3c; font-size: 1.2em;">⚠️</span>' : ''}
                 </td>
+                <td><span style="color: #95a5a6;">${usedQty}</span></td>
                 <td>${escapeHtml(item.unit)}</td>
                 <td><strong>$${item.price.toFixed(2)}</strong></td>
                 <td><strong style="color: #27ae60;">$${totalValue}</strong></td>
                 <td><span class="badge-location">${escapeHtml(item.location || '-')}</span></td>
                 <td class="actions-cell">
                     ${isReadOnly ? '<span style="color: #95a5a6;">View Only</span>' : `
-                    <button class="btn btn-small btn-adjust" onclick="showAdjustModal(${item.id})" title="Adjust Quantity">📊</button>
-                    <button class="btn btn-small btn-edit" onclick="editItem(${item.id})" title="Edit Item">✏️</button>
-                    <button class="btn btn-small btn-delete" onclick="deleteItem(${item.id})" title="Delete Item">🗑️</button>
+                    <button class="btn btn-small btn-adjust" onclick="showAdjustModal('${item.id}')" title="Adjust Quantity">📊</button>
+                    <button class="btn btn-small btn-edit" onclick="editItem('${item.id}')" title="Edit Item">✏️</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteItem('${item.id}')" title="Delete Item">🗑️</button>
                     `}
                 </td>
             </tr>
@@ -164,7 +185,7 @@ async function loadCategories() {
             datalist.innerHTML = uniqueCategories.map(cat => `<option value="${escapeHtml(cat)}">`).join('');
         }
     } catch (error) {
-        console.error('Error loading categories:', error);
+        // Categories loading failed silently
     }
 }
 
@@ -269,8 +290,7 @@ async function saveItem(event) {
             alert(response.error || 'Failed to save item');
         }
     } catch (error) {
-        console.error('Error saving item:', error);
-        alert('Failed to save item');
+        alert('Failed to save item. Please try again.');
     }
 }
 
@@ -324,8 +344,7 @@ async function quickAdjust(amount) {
             alert(response.error || 'Failed to adjust quantity');
         }
     } catch (error) {
-        console.error('Error adjusting quantity:', error);
-        alert('Failed to adjust quantity');
+        alert('Failed to adjust quantity. Please try again.');
     }
 }
 
@@ -356,8 +375,7 @@ async function adjustQuantity(event) {
             alert(response.error || 'Failed to adjust quantity');
         }
     } catch (error) {
-        console.error('Error adjusting quantity:', error);
-        alert('Failed to adjust quantity');
+        alert('Failed to adjust quantity. Please try again.');
     }
 }
 
@@ -380,8 +398,7 @@ async function deleteItem(id) {
             alert(response.error || 'Failed to delete item');
         }
     } catch (error) {
-        console.error('Error deleting item:', error);
-        alert('Failed to delete item');
+        alert('Failed to delete item. Please try again.');
     }
 }
 

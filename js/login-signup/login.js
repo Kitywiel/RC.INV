@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showError(data.error || 'Login failed');
             }
         } catch (error) {
-            console.error('Login error:', error);
             showError('Connection error. Please try again.');
         }
     });

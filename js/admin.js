@@ -51,9 +51,8 @@ async function loadUsers() {
             updateStats(data.users);
         }
     } catch (error) {
-        console.error('Error loading users:', error);
         document.getElementById('usersTableBody').innerHTML = 
-            '<tr><td colspan="8" class="loading-cell">Failed to load users</td></tr>';
+            '<tr><td colspan="8" class="loading-cell">Failed to load users. Please refresh the page.</td></tr>';
     }
 }
 
@@ -80,13 +79,13 @@ function displayUsers(users) {
             <td>${u.has_unlimited ? '♾️ Unlimited' : u.item_limit}</td>
             <td>${formatDate(u.created_at)}</td>
             <td>
-                <button class="btn-admin btn-view" onclick="viewUser(${u.id})" title="View Details">👁️</button>
-                <button class="btn-admin btn-toggle" onclick="toggleUserStatus(${u.id}, ${u.is_active})" title="Toggle Status">
+                <button class="btn-admin btn-view" onclick="viewUser('${u.id}')" title="View Details">👁️</button>
+                <button class="btn-admin btn-toggle" onclick="toggleUserStatus('${u.id}', ${u.is_active})" title="Toggle Status">
                     ${u.is_active ? '🔒' : '🔓'}
                 </button>
-                ${!u.has_unlimited ? `<button class="btn-admin btn-unlock" onclick="unlockUnlimited(${u.id})" title="Unlock Unlimited">♾️</button>` : ''}
-                <button class="btn-admin btn-clear" onclick="clearItems(${u.id})" title="Clear Items">🗑️</button>
-                <button class="btn-admin btn-delete" onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')" title="Delete User">❌</button>
+                ${!u.has_unlimited ? `<button class="btn-admin btn-unlock" onclick="unlockUnlimited('${u.id}')" title="Unlock Unlimited">♾️</button>` : ''}
+                <button class="btn-admin btn-clear" onclick="clearItems('${u.id}')" title="Clear Items">🗑️</button>
+                <button class="btn-admin btn-delete" onclick="deleteUser('${u.id}', '${escapeHtml(u.username)}')" title="Delete User">❌</button>
             </td>
         </tr>
     `).join('');
@@ -108,8 +107,7 @@ async function viewUser(userId) {
             displayUserDetails(data.user, data.items);
         }
     } catch (error) {
-        console.error('Error loading user details:', error);
-        alert('Failed to load user details');
+        alert('Failed to load user details. Please try again.');
     }
 }
 
@@ -181,8 +179,7 @@ async function toggleUserStatus(userId, isActive) {
             alert(response.error || 'Failed to update user status');
         }
     } catch (error) {
-        console.error('Error toggling user status:', error);
-        alert('Failed to update user status');
+        alert('Failed to update user status. Please try again.');
     }
 }
 
@@ -204,8 +201,7 @@ async function unlockUnlimited(userId) {
             alert(response.error || 'Failed to unlock unlimited');
         }
     } catch (error) {
-        console.error('Error unlocking unlimited:', error);
-        alert('Failed to unlock unlimited');
+        alert('Failed to unlock unlimited. Please try again.');
     }
 }
 
@@ -227,8 +223,7 @@ async function clearItems(userId) {
             alert(response.error || 'Failed to clear items');
         }
     } catch (error) {
-        console.error('Error clearing items:', error);
-        alert('Failed to clear items');
+        alert('Failed to clear items. Please try again.');
     }
 }
 
@@ -250,8 +245,7 @@ async function deleteUser(userId, username) {
             alert(response.error || 'Failed to delete user');
         }
     } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('Failed to delete user');
+        alert('Failed to delete user. Please try again.');
     }
 }
 

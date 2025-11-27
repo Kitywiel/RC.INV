@@ -48,7 +48,7 @@ async function loadGuests() {
             displayGuests(data.guests);
         }
     } catch (error) {
-        console.error('Error loading guests:', error);
+        // Guests loading failed silently
     }
 }
 
@@ -80,7 +80,7 @@ function displayGuests(guests) {
                         <td>${formatDate(guest.created_at)}</td>
                         <td>${guest.last_login ? formatDate(guest.last_login) : 'Never'}</td>
                         <td>
-                            <button class="btn btn-small btn-delete" onclick="deleteGuest(${guest.id}, '${escapeHtml(guest.username)}')" title="Delete Guest">🗑️</button>
+                            <button class="btn btn-small btn-delete" onclick="deleteGuest('${guest.id}', '${escapeHtml(guest.username)}')" title="Delete Guest">🗑️</button>
                         </td>
                     </tr>
                 `).join('')}
@@ -113,8 +113,7 @@ async function createGuest(event) {
             alert(response.error || 'Failed to create guest account');
         }
     } catch (error) {
-        console.error('Error creating guest:', error);
-        alert('Failed to create guest account');
+        alert('Failed to create guest account. Please try again.');
     }
 }
 
@@ -135,8 +134,7 @@ async function deleteGuest(id, username) {
             alert(response.error || 'Failed to delete guest');
         }
     } catch (error) {
-        console.error('Error deleting guest:', error);
-        alert('Failed to delete guest');
+        alert('Failed to delete guest. Please try again.');
     }
 }
 

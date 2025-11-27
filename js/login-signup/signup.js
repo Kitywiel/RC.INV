@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 showError(data.error || 'Signup failed');
             }
         } catch (error) {
-            console.error('Signup error:', error);
             showError('Connection error. Please try again.');
         }
     });

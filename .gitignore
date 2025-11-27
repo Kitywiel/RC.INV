@@ -10,3 +10,4 @@ user_info/*.db-wal
 
 # Contact form submissions
 contacts/*.json
+google-credentials.json
