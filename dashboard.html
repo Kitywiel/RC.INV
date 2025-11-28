@@ -215,12 +215,28 @@
             border-bottom: 1px solid #ecf0f1;
         }
 
+        .permission-select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+
         .btn-small {
             padding: 6px 12px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.9em;
+            margin-right: 5px;
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-small:hover {
+            opacity: 0.8;
         }
 
         .btn-delete {
@@ -618,6 +634,7 @@
                         <tr>
                             <th>Username</th>
                             <th>Email</th>
+                            <th>Permission</th>
                             <th>Created</th>
                             <th>Last Login</th>
                             <th>Actions</th>
@@ -628,10 +645,18 @@
                             <tr>
                                 <td><strong>${escapeHtml(guest.username)}</strong></td>
                                 <td>${escapeHtml(guest.email)}</td>
+                                <td>
+                                    <select class="permission-select" onchange="updateGuestPermission('${guest.id}', this.value)">
+                                        <option value="read-only" ${guest.permission === 'read-only' ? 'selected' : ''}>Read Only</option>
+                                        <option value="edit-inv" ${guest.permission === 'edit-inv' ? 'selected' : ''}>Edit Inventory</option>
+                                        <option value="full-access" ${guest.permission === 'full-access' ? 'selected' : ''}>Full Access</option>
+                                    </select>
+                                </td>
                                 <td>${formatDate(guest.created_at)}</td>
                                 <td>${guest.last_login ? formatDate(guest.last_login) : 'Never'}</td>
                                 <td>
-                                    <button class="btn-small btn-delete" onclick="deleteGuest(${guest.id}, '${escapeHtml(guest.username)}')">Delete</button>
+                                    <button class="btn-small" onclick="resetGuestPasscode('${guest.id}', '${escapeHtml(guest.username)}')">Reset Password</button>
+                                    <button class="btn-small btn-delete" onclick="deleteGuest('${guest.id}', '${escapeHtml(guest.username)}')">Delete</button>
                                 </td>
                             </tr>
                         `).join('')}
@@ -679,6 +704,7 @@
                 });
 
                 if (response && response.success) {
+                    alert('Guest account deleted successfully');
                     loadGuests();
                 } else {
                     alert(response.error || 'Failed to delete guest');
@@ -686,6 +712,54 @@
             } catch (error) {
                 console.error('Error deleting guest:', error);
                 alert('Failed to delete guest');
+            }
+        }
+
+        async function resetGuestPasscode(id, username) {
+            const newPassword = prompt(`Enter new password for guest "${username}":`);
+            if (!newPassword) {
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('Password must be at least 6 characters long');
+                return;
+            }
+
+            try {
+                const response = await apiCall(`/api/auth/guest/${id}/reset-password`, {
+                    method: 'POST',
+                    body: JSON.stringify({ password: newPassword })
+                });
+
+                if (response && response.success) {
+                    alert('Password reset successfully!');
+                } else {
+                    alert(response.error || 'Failed to reset password');
+                }
+            } catch (error) {
+                console.error('Error resetting password:', error);
+                alert('Failed to reset password');
+            }
+        }
+
+        async function updateGuestPermission(id, permission) {
+            try {
+                const response = await apiCall(`/api/auth/guest/${id}/permission`, {
+                    method: 'POST',
+                    body: JSON.stringify({ permission })
+                });
+
+                if (response && response.success) {
+                    console.log('Permission updated successfully');
+                } else {
+                    alert(response.error || 'Failed to update permission');
+                    loadGuests(); // Reload to reset the dropdown
+                }
+            } catch (error) {
+                console.error('Error updating permission:', error);
+                alert('Failed to update permission');
+                loadGuests(); // Reload to reset the dropdown
             }
         }
 

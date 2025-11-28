@@ -112,6 +112,7 @@ function initializeDatabase() {
         db.run(`ALTER TABLE users ADD COLUMN item_limit INTEGER DEFAULT 20`, () => {});
         db.run(`ALTER TABLE users ADD COLUMN has_unlimited BOOLEAN DEFAULT 0`, () => {});
         db.run(`ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1`, () => {});
+        db.run(`ALTER TABLE users ADD COLUMN permission TEXT DEFAULT 'read-only'`, () => {});
     });
 
     // Inventory items table
@@ -702,6 +703,63 @@ app.delete('/api/auth/guest/:id', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Guest account deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete guest' });
+    }
+});
+
+// Reset guest password
+app.post('/api/auth/guest/:id/reset-password', authenticateToken, async (req, res) => {
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    try {
+        // Verify guest belongs to owner
+        const guest = await dbGetUser('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (!guest || guest.owner_id !== req.user.id || guest.role !== 'guest') {
+            return res.status(404).json({ error: 'Guest not found' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await dbUpdateUser(req.params.id, { password: hashedPassword });
+        
+        console.log(`✓ Password reset for guest: ${guest.username}`);
+        res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// Update guest permission
+app.post('/api/auth/guest/:id/permission', authenticateToken, async (req, res) => {
+    if (req.user.role === 'guest') {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { permission } = req.body;
+    const validPermissions = ['read-only', 'edit-inv', 'full-access'];
+    
+    if (!permission || !validPermissions.includes(permission)) {
+        return res.status(400).json({ error: 'Invalid permission level' });
+    }
+
+    try {
+        // Verify guest belongs to owner
+        const guest = await dbGetUser('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (!guest || guest.owner_id !== req.user.id || guest.role !== 'guest') {
+            return res.status(404).json({ error: 'Guest not found' });
+        }
+
+        await dbUpdateUser(req.params.id, { permission });
+        
+        console.log(`✓ Permission updated for guest ${guest.username}: ${permission}`);
+        res.json({ success: true, message: 'Permission updated successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update permission' });
     }
 });
 
