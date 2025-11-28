@@ -1,9 +1,30 @@
 // Check authentication
 const token = localStorage.getItem('token');
-const user = JSON.parse(localStorage.getItem('user') || '{}');
+let user = JSON.parse(localStorage.getItem('user') || '{}');
 
 if (!token || !user.username) {
     window.location.href = '/user/login.html';
+}
+
+// Refresh user data to ensure we have latest limits
+async function refreshUserData() {
+    try {
+        const response = await fetch('/api/auth/me', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.user) {
+                user = { ...user, ...data.user };
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+        }
+    } catch (error) {
+        console.error('Failed to refresh user data:', error);
+    }
 }
 
 // Display user name
@@ -15,7 +36,8 @@ let categories = [];
 let isReadOnly = user.role === 'guest';
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await refreshUserData();
     loadStats();
     loadInventory();
     loadCategories();

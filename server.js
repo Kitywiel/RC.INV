@@ -721,7 +721,21 @@ app.post('/api/auth/unlock-unlimited', authenticateToken, async (req, res) => {
     try {
         await dbUpdateUser(req.user.id, { has_unlimited: 1 });
         console.log(`✓ Unlimited items unlocked for user ${req.user.username}`);
-        res.json({ success: true, message: 'Unlimited items unlocked!' });
+        
+        // Return updated user data
+        const updatedUser = await dbGetUser('SELECT id, username, email, role, item_limit, has_unlimited FROM users WHERE id = ?', [req.user.id]);
+        res.json({ 
+            success: true, 
+            message: 'Unlimited items unlocked!',
+            user: {
+                id: updatedUser.id,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                item_limit: updatedUser.item_limit,
+                has_unlimited: updatedUser.has_unlimited
+            }
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to unlock unlimited items' });
     }

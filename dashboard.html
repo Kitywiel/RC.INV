@@ -535,6 +535,14 @@
                 if (response && response.success) {
                     alert('Unlimited items unlocked successfully!');
                     document.getElementById('unlockCode').value = '';
+                    
+                    // Update localStorage with new user data
+                    if (response.user) {
+                        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                        const updatedUser = { ...currentUser, ...response.user };
+                        localStorage.setItem('user', JSON.stringify(updatedUser));
+                    }
+                    
                     loadLimits();
                 } else {
                     alert(response.error || 'Invalid unlock code');
