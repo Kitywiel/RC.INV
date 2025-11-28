@@ -905,6 +905,34 @@ app.delete('/api/admin/user/:id/items', authenticateToken, requireAdmin, async (
     }
 });
 
+// Delete a single item from user's inventory (admin only)
+app.delete('/api/admin/user/:id/item/:itemId', authenticateToken, requireAdmin, async (req, res) => {
+    const userId = req.params.id;
+    const itemId = req.params.itemId;
+
+    try {
+        const user = await dbGetUser('SELECT username FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const item = await dbGetItem(itemId);
+        if (!item || item.user_id !== userId) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        await dbDeleteItem(itemId);
+        console.log(`✓ Admin ${req.user.username} deleted item "${item.name}" from ${user.username}'s inventory`);
+        res.json({ 
+            success: true, 
+            message: 'Item deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        res.status(500).json({ error: 'Failed to delete item' });
+    }
+});
+
 // Delete user account (admin only)
 app.delete('/api/admin/user/:id', authenticateToken, requireAdmin, async (req, res) => {
     const userId = req.params.id;
@@ -940,10 +968,142 @@ app.get('/api/admin/user/:id', authenticateToken, requireAdmin, async (req, res)
             return res.status(404).json({ error: 'User not found' });
         }
 
+        // Add item count
+        user.item_count = await dbCountUserItems(userId);
+        
         const items = await dbGetInventory(userId);
         res.json({ user, items });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch user details' });
+    }
+});
+
+// Get user's guest accounts
+app.get('/api/admin/user/:id/guests', authenticateToken, requireAdmin, async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        const guests = await dbGetAllUsers(
+            `SELECT id, username, email, permission, created_at, last_login FROM users WHERE owner_id = ? AND role = 'guest'`,
+            [userId]
+        );
+        res.json({ guests });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch user guests' });
+    }
+});
+
+// Reset user password (admin only)
+app.post('/api/admin/user/:id/reset-password', authenticateToken, requireAdmin, async (req, res) => {
+    const userId = req.params.id;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters' });
+    }
+
+    try {
+        const user = await dbGetUser('SELECT username FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await dbUpdateUser(userId, { password: hashedPassword });
+        
+        console.log(`✓ Password reset for user ${user.username} by admin ${req.user.username}`);
+        res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// Issue warning to user (admin only)
+app.post('/api/admin/user/:id/warn', authenticateToken, requireAdmin, async (req, res) => {
+    const userId = req.params.id;
+    const { reason } = req.body;
+
+    if (!reason) {
+        return res.status(400).json({ error: 'Warning reason is required' });
+    }
+
+    try {
+        const user = await dbGetUser('SELECT username FROM users WHERE id = ?', [userId]);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Add warning to Google Sheets
+        if (USE_GOOGLE_SHEETS && googleDB) {
+            try {
+                const warning = await googleDB.addWarning(userId, req.user.id, reason);
+                console.log(`⚠️  Warning issued to ${user.username} by ${req.user.username}: ${reason}`);
+                res.json({ success: true, message: 'Warning issued successfully', warning });
+            } catch (sheetError) {
+                console.error('Google Sheets error:', sheetError.message);
+                if (sheetError.message.includes('Unable to parse range')) {
+                    return res.status(400).json({ error: 'USER_WARNINGS tab not found in Google Sheets. Please create it with headers: USER ID | WARN ID | WARN REASON | WARNED BY' });
+                }
+                throw sheetError;
+            }
+        } else {
+            // For SQLite, we'll just log it for now (you can add a warnings table later if needed)
+            console.log(`⚠️  Warning issued to ${user.username} by ${req.user.username}: ${reason}`);
+            res.json({ success: true, message: 'Warning logged successfully' });
+        }
+    } catch (error) {
+        console.error('Error issuing warning:', error);
+        res.status(500).json({ error: 'Failed to issue warning: ' + error.message });
+    }
+});
+
+// Get warnings for a user (admin only)
+app.get('/api/admin/user/:id/warnings', authenticateToken, requireAdmin, async (req, res) => {
+    const userId = req.params.id;
+
+    try {
+        if (USE_GOOGLE_SHEETS && googleDB) {
+            const warnings = await googleDB.getWarningsForUser(userId);
+            const count = warnings.length;
+            res.json({ warnings, count });
+        } else {
+            // For SQLite, return empty for now
+            res.json({ warnings: [], count: 0 });
+        }
+    } catch (error) {
+        console.error('Error fetching warnings:', error);
+        res.status(500).json({ error: 'Failed to fetch warnings' });
+    }
+});
+
+// Get unseen warnings count for logged-in user
+app.get('/api/user/warnings/unseen', authenticateToken, async (req, res) => {
+    try {
+        if (USE_GOOGLE_SHEETS && googleDB) {
+            const unseenCount = await googleDB.getUnseenWarningCount(req.user.id);
+            res.json({ unseenCount });
+        } else {
+            res.json({ unseenCount: 0 });
+        }
+    } catch (error) {
+        console.error('Error fetching unseen warnings:', error);
+        res.json({ unseenCount: 0 });
+    }
+});
+
+// Mark warnings as seen for logged-in user
+app.post('/api/user/warnings/mark-seen', authenticateToken, async (req, res) => {
+    try {
+        if (USE_GOOGLE_SHEETS && googleDB) {
+            const markedCount = await googleDB.markWarningsAsSeen(req.user.id);
+            res.json({ success: true, markedCount });
+        } else {
+            res.json({ success: true, markedCount: 0 });
+        }
+    } catch (error) {
+        console.error('Error marking warnings as seen:', error);
+        res.status(500).json({ error: 'Failed to mark warnings as seen' });
     }
 });
 

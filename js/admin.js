@@ -61,12 +61,12 @@ function displayUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading-cell">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">No users found</td></tr>';
         return;
     }
 
     tbody.innerHTML = users.map(u => `
-        <tr>
+        <tr onclick="openUserModal('${u.id}')">
             <td><strong>${escapeHtml(u.username)}</strong></td>
             <td>${escapeHtml(u.email)}</td>
             <td><span class="badge">${u.role === 'owner' ? 'user' : u.role}</span></td>
@@ -78,15 +78,6 @@ function displayUsers(users) {
             <td><strong>${u.item_count}</strong></td>
             <td>${u.has_unlimited ? '♾️ Unlimited' : u.item_limit}</td>
             <td>${formatDate(u.created_at)}</td>
-            <td>
-                <button class="btn-admin btn-view" onclick="viewUser('${u.id}')" title="View Details">👁️</button>
-                <button class="btn-admin btn-toggle" onclick="toggleUserStatus('${u.id}', ${u.is_active})" title="Toggle Status">
-                    ${u.is_active ? '🔒' : '🔓'}
-                </button>
-                ${!u.has_unlimited ? `<button class="btn-admin btn-unlock" onclick="unlockUnlimited('${u.id}')" title="Unlock Unlimited">♾️</button>` : ''}
-                <button class="btn-admin btn-clear" onclick="clearItems('${u.id}')" title="Clear Items">🗑️</button>
-                <button class="btn-admin btn-delete" onclick="deleteUser('${u.id}', '${escapeHtml(u.username)}')" title="Delete User">❌</button>
-            </td>
         </tr>
     `).join('');
 }
@@ -99,81 +90,258 @@ function updateStats(users) {
     document.getElementById('unlimitedUsers').textContent = users.filter(u => u.has_unlimited).length;
 }
 
-// View user details
-async function viewUser(userId) {
+// User Modal Functions
+let currentUserData = null;
+let currentUserGuests = [];
+
+async function openUserModal(userId) {
     try {
         const data = await apiCall(`/api/admin/user/${userId}`);
         if (data && data.user) {
-            displayUserDetails(data.user, data.items);
+            currentUserData = data.user;
+            currentUserItems = data.items || [];
+            
+            console.log('User data:', currentUserData);
+            
+            // Convert string/number to boolean for is_active
+            const isActive = currentUserData.is_active === true || currentUserData.is_active === 1 || currentUserData.is_active === '1' || currentUserData.is_active === 'true';
+            const hasUnlimited = currentUserData.has_unlimited === true || currentUserData.has_unlimited === 1 || currentUserData.has_unlimited === '1' || currentUserData.has_unlimited === 'true';
+            
+            // Populate modal
+            document.getElementById('modalUsername').textContent = currentUserData.username;
+            document.getElementById('modalEmail').textContent = currentUserData.email;
+            document.getElementById('modalRole').textContent = currentUserData.role === 'owner' ? 'user' : currentUserData.role;
+            document.getElementById('modalStatus').innerHTML = `
+                <span class="user-status ${isActive ? 'status-active' : 'status-inactive'}">
+                    ${isActive ? 'Active' : 'Disabled'}
+                </span>
+            `;
+            document.getElementById('modalItemCount').textContent = currentUserData.item_count || 0;
+            document.getElementById('itemCountBtn').textContent = currentUserData.item_count || 0;
+            document.getElementById('modalItemLimit').textContent = hasUnlimited ? '♾️ Unlimited' : currentUserData.item_limit;
+            document.getElementById('modalCreated').textContent = formatDate(currentUserData.created_at);
+            document.getElementById('modalUserId').textContent = currentUserData.id;
+
+            // Update button states
+            document.getElementById('modalToggleText').textContent = isActive ? '🔒 Disable Account' : '🔓 Enable Account';
+            document.getElementById('modalUnlockBtn').style.display = hasUnlimited ? 'none' : 'block';
+
+            // Load user's guests
+            await loadUserGuests(userId);
+
+            // Show modal
+            document.getElementById('userModal').style.display = 'flex';
         }
     } catch (error) {
-        alert('Failed to load user details. Please try again.');
+        console.error('Error loading user details:', error);
+        alert('Failed to load user details');
     }
 }
 
-// Display user details in modal
-function displayUserDetails(user, items) {
-    const modal = document.getElementById('userModal');
-    const details = document.getElementById('userDetails');
-    
-    details.innerHTML = `
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3>${escapeHtml(user.username)}</h3>
-            <p><strong>Email:</strong> ${escapeHtml(user.email)}</p>
-            <p><strong>Role:</strong> ${user.role === 'owner' ? 'user' : user.role}</p>
-            <p><strong>Status:</strong> <span class="user-status ${user.is_active ? 'status-active' : 'status-inactive'}">${user.is_active ? 'Active' : 'Disabled'}</span></p>
-            <p><strong>Item Limit:</strong> ${user.has_unlimited ? '♾️ Unlimited' : user.item_limit}</p>
-            <p><strong>Created:</strong> ${formatDate(user.created_at)}</p>
-            <p><strong>Last Login:</strong> ${user.last_login ? formatDate(user.last_login) : 'Never'}</p>
-        </div>
+async function loadUserGuests(userId) {
+    try {
+        const response = await apiCall(`/api/admin/user/${userId}/guests`);
+        currentUserGuests = response?.guests || [];
         
-        <h4>Inventory Items (${items.length})</h4>
-        ${items.length === 0 ? '<p style="color: #7f8c8d;">No items</p>' : `
-            <table class="inventory-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                        <th>Updated</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${items.map(item => `
-                        <tr>
-                            <td>${escapeHtml(item.name)}</td>
-                            <td>${escapeHtml(item.category || '-')}</td>
-                            <td>${item.quantity} ${item.unit}</td>
-                            <td>$${item.price.toFixed(2)}</td>
-                            <td>${formatDate(item.updated_at)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `}
-    `;
+        console.log('Loaded guests:', currentUserGuests);
+        
+        const guestCount = document.getElementById('guestCount');
+        guestCount.textContent = currentUserGuests.length;
+    } catch (error) {
+        console.error('Error loading guests:', error);
+        currentUserGuests = [];
+        const guestCount = document.getElementById('guestCount');
+        if (guestCount) {
+            guestCount.textContent = '0';
+        }
+    }
+}
+
+function displayUserGuests() {
+    const guestsTableBody = document.getElementById('guestsTableBody');
+    const guestCountModal = document.getElementById('guestCountModal');
     
-    modal.classList.add('active');
+    if (!guestsTableBody) {
+        console.error('guestsTableBody element not found');
+        return;
+    }
+    
+    if (currentUserGuests.length === 0) {
+        guestsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #7f8c8d; padding: 40px;">No guest accounts</td></tr>';
+        guestCountModal.textContent = '0';
+        return;
+    }
+
+    console.log('Displaying guests:', currentUserGuests);
+    guestCountModal.textContent = currentUserGuests.length;
+    
+    guestsTableBody.innerHTML = currentUserGuests.map(guest => {
+        return `
+        <tr onclick="openGuestDetailModal('${guest.id}')" style="cursor: pointer;">
+            <td><strong>${escapeHtml(guest.username || 'Unknown')}</strong></td>
+            <td>${escapeHtml(guest.email || 'No email')}</td>
+            <td><span class="badge" style="text-transform: capitalize;">${escapeHtml(guest.permission || 'read-only')}</span></td>
+            <td>${formatDate(guest.created_at)}</td>
+            <td>${guest.last_login ? formatDate(guest.last_login) : '<span style="color: #95a5a6;">Never</span>'}</td>
+        </tr>
+        `;
+    }).join('');
+}
+
+function openGuestsPanel() {
+    if (currentUserGuests.length === 0) {
+        alert('This user has no guest accounts');
+        return;
+    }
+    displayUserGuests();
+    document.getElementById('guestsModal').style.display = 'flex';
+}
+
+function closeGuestsModal() {
+    document.getElementById('guestsModal').style.display = 'none';
+}
+
+// Inventory Panel Functions
+let currentUserItems = [];
+
+function openInventoryPanel() {
+    if (!currentUserData) return;
+    
+    // Get items from the current user data fetch
+    displayUserInventory();
+    document.getElementById('inventoryModal').style.display = 'flex';
+}
+
+function displayUserInventory() {
+    const itemCountSpan = document.getElementById('inventoryItemCount');
+    const tableBody = document.getElementById('inventoryTableBody');
+    
+    if (!currentUserItems || currentUserItems.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #7f8c8d; padding: 40px;">No items found</td></tr>';
+        itemCountSpan.textContent = '0';
+        return;
+    }
+
+    itemCountSpan.textContent = currentUserItems.length;
+    
+    tableBody.innerHTML = currentUserItems.map(item => `
+        <tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${escapeHtml(item.category || 'Uncategorized')}</td>
+            <td>${escapeHtml(item.quantity?.toString() || '0')}</td>
+            <td>$${parseFloat(item.price || 0).toFixed(2)}</td>
+            <td>${formatDate(item.updated_at || item.created_at)}</td>
+            <td class="actions-cell">
+                <button class="btn btn-small btn-delete" onclick="deleteItemFromAdmin('${item.id}')" title="Delete Item">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function closeInventoryModal() {
+    document.getElementById('inventoryModal').style.display = 'none';
+}
+
+async function deleteItemFromAdmin(itemId) {
+    if (!currentUserData) return;
+    
+    const item = currentUserItems.find(i => i.id === itemId);
+    if (!item) return;
+    
+    if (!confirm(`Delete "${item.name}" from ${currentUserData.username}'s inventory?`)) {
+        return;
+    }
+    
+    try {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/item/${itemId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response && response.success) {
+            // Remove from current list
+            currentUserItems = currentUserItems.filter(i => i.id !== itemId);
+            displayUserInventory();
+            
+            // Update counts
+            const newCount = currentUserItems.length;
+            document.getElementById('modalItemCount').textContent = newCount;
+            document.getElementById('itemCountBtn').textContent = newCount;
+            
+            // Reload users list
+            loadUsers();
+        } else {
+            alert(response.error || 'Failed to delete item');
+        }
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        alert('Failed to delete item. Please try again.');
+    }
+}
+
+async function clearItemsFromInventoryPanel() {
+    if (!currentUserData) return;
+    
+    const confirmMsg = `Are you sure you want to clear ALL ${currentUserItems.length} items from ${currentUserData.username}'s inventory? This action cannot be undone!`;
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+
+    // Double confirmation for destructive action
+    if (!confirm('This will permanently delete all items. Are you absolutely sure?')) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/items`, {
+            method: 'DELETE'
+        });
+
+        if (response && response.success) {
+            alert('All items cleared successfully');
+            currentUserItems = [];
+            displayUserInventory();
+            
+            // Update the item count in user modal
+            document.getElementById('modalItemCount').textContent = '0';
+            document.getElementById('itemCountBtn').textContent = '0';
+            
+            // Reload the user list to reflect changes
+            loadUsers();
+            
+            // Close inventory panel
+            closeInventoryModal();
+        } else {
+            alert(response.error || 'Failed to clear items');
+        }
+    } catch (error) {
+        console.error('Error clearing items:', error);
+        alert('Failed to clear items. Please try again.');
+    }
 }
 
 function closeUserModal() {
-    document.getElementById('userModal').classList.remove('active');
+    document.getElementById('userModal').style.display = 'none';
+    currentUserData = null;
+    currentUserGuests = [];
 }
 
-// Toggle user status
-async function toggleUserStatus(userId, isActive) {
-    const action = isActive ? 'disable' : 'enable';
+// Modal Action Functions
+async function toggleUserStatusFromModal() {
+    if (!currentUserData) return;
+    
+    const action = currentUserData.is_active ? 'disable' : 'enable';
     if (!confirm(`Are you sure you want to ${action} this user?`)) {
         return;
     }
 
     try {
-        const response = await apiCall(`/api/admin/user/${userId}/toggle-status`, {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/toggle-status`, {
             method: 'POST'
         });
 
         if (response && response.success) {
+            alert(`User ${action}d successfully`);
+            closeUserModal();
             loadUsers();
         } else {
             alert(response.error || 'Failed to update user status');
@@ -183,19 +351,21 @@ async function toggleUserStatus(userId, isActive) {
     }
 }
 
-// Unlock unlimited for user
-async function unlockUnlimited(userId) {
+async function unlockUnlimitedFromModal() {
+    if (!currentUserData) return;
+    
     if (!confirm('Grant unlimited items to this user?')) {
         return;
     }
 
     try {
-        const response = await apiCall(`/api/admin/user/${userId}/unlock-unlimited`, {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/unlock-unlimited`, {
             method: 'POST'
         });
 
         if (response && response.success) {
             alert('Unlimited items unlocked for user');
+            closeUserModal();
             loadUsers();
         } else {
             alert(response.error || 'Failed to unlock unlimited');
@@ -205,41 +375,77 @@ async function unlockUnlimited(userId) {
     }
 }
 
-// Clear user items
-async function clearItems(userId) {
-    if (!confirm('Are you sure you want to delete all items for this user? This cannot be undone!')) {
-        return;
-    }
-
+async function warnUserFromModal() {
+    if (!currentUserData) return;
+    
+    const reason = prompt(`Enter warning reason for ${currentUserData.username}:`);
+    if (!reason) return;
+    
     try {
-        const response = await apiCall(`/api/admin/user/${userId}/items`, {
-            method: 'DELETE'
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/warn`, {
+            method: 'POST',
+            body: JSON.stringify({ reason })
         });
 
         if (response && response.success) {
-            alert(response.message);
-            loadUsers();
+            alert('Warning issued successfully');
         } else {
-            alert(response.error || 'Failed to clear items');
+            alert(response.error || 'Failed to issue warning');
         }
     } catch (error) {
-        alert('Failed to clear items. Please try again.');
+        console.error('Error issuing warning:', error);
+        alert('Failed to issue warning. Please try again.');
     }
 }
 
-// Delete user
-async function deleteUser(userId, username) {
-    if (!confirm(`Are you sure you want to permanently delete user "${username}"? This will delete their account and all data!`)) {
+async function resetPasswordFromModal() {
+    if (!currentUserData) return;
+    
+    const newPassword = prompt(`Enter new password for ${currentUserData.username}:\n(minimum 4 characters)`);
+    if (!newPassword) return;
+    
+    if (newPassword.length < 4) {
+        alert('Password must be at least 4 characters');
         return;
     }
 
     try {
-        const response = await apiCall(`/api/admin/user/${userId}`, {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword })
+        });
+
+        if (response && response.success) {
+            alert('Password reset successfully');
+        } else {
+            alert(response.error || 'Failed to reset password');
+        }
+    } catch (error) {
+        alert('Failed to reset password. Please try again.');
+    }
+}
+
+async function deleteUserFromModal() {
+    if (!currentUserData) return;
+    
+    if (!confirm(`⚠️ DELETE user "${currentUserData.username}" permanently?\n\nThis will delete:\n- The user account\n- All their inventory items\n- All their guest accounts\n\nThis CANNOT be undone!`)) {
+        return;
+    }
+
+    const confirmText = prompt(`Type "${currentUserData.username}" to confirm deletion:`);
+    if (confirmText !== currentUserData.username) {
+        alert('Deletion cancelled - name did not match');
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/admin/user/${currentUserData.id}`, {
             method: 'DELETE'
         });
 
         if (response && response.success) {
             alert('User deleted successfully');
+            closeUserModal();
             loadUsers();
         } else {
             alert(response.error || 'Failed to delete user');
@@ -273,8 +479,202 @@ function logout() {
 }
 
 // Close modal on outside click
-document.getElementById('userModal').addEventListener('click', function(e) {
+document.getElementById('userModal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeUserModal();
     }
 });
+
+document.getElementById('guestsModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeGuestsModal();
+    }
+});
+
+document.getElementById('inventoryModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeInventoryModal();
+    }
+});
+
+document.getElementById('guestDetailModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeGuestDetailModal();
+    }
+});
+
+// Guest Detail Modal Functions
+let currentGuestData = null;
+
+async function openGuestDetailModal(guestId) {
+    try {
+        // Find guest in current list or fetch fresh data
+        let guest = currentUserGuests.find(g => g.id === guestId);
+        
+        if (!guest) {
+            // Fetch guest data if not in current list
+            const data = await apiCall(`/api/admin/user/${guestId}`);
+            guest = data?.user;
+        }
+        
+        if (!guest) {
+            alert('Guest not found');
+            return;
+        }
+        
+        currentGuestData = guest;
+        
+        // Convert status to boolean
+        const isActive = guest.is_active === true || guest.is_active === 1 || guest.is_active === '1' || guest.is_active === 'true';
+        
+        // Fetch warnings count
+        let warningCount = 0;
+        try {
+            const warningData = await apiCall(`/api/admin/user/${guestId}/warnings`);
+            warningCount = warningData?.count || 0;
+        } catch (error) {
+            console.error('Error fetching warnings:', error);
+        }
+        
+        // Populate modal
+        document.getElementById('guestUsername').textContent = guest.username;
+        document.getElementById('guestEmail').textContent = guest.email;
+        document.getElementById('guestRank').innerHTML = `<span class="badge" style="text-transform: capitalize;">${escapeHtml(guest.permission || 'read-only')}</span>`;
+        document.getElementById('guestStatus').innerHTML = `
+            <span class="user-status ${isActive ? 'status-active' : 'status-inactive'}">
+                ${isActive ? 'Active' : 'Disabled'}
+            </span>
+        `;
+        document.getElementById('guestId').textContent = guest.id;
+        document.getElementById('guestWarnings').textContent = warningCount;
+        
+        // Update button
+        document.getElementById('guestToggleText').textContent = isActive ? '🔒 Disable Account' : '🔓 Enable Account';
+        
+        // Close guests list modal and show guest detail modal
+        closeGuestsModal();
+        document.getElementById('guestDetailModal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading guest details:', error);
+        alert('Failed to load guest details');
+    }
+}
+
+function closeGuestDetailModal() {
+    document.getElementById('guestDetailModal').style.display = 'none';
+    currentGuestData = null;
+    // Reopen guests list
+    document.getElementById('guestsModal').style.display = 'flex';
+}
+
+async function toggleGuestStatus() {
+    if (!currentGuestData) return;
+    
+    const isActive = currentGuestData.is_active === true || currentGuestData.is_active === 1 || currentGuestData.is_active === '1' || currentGuestData.is_active === 'true';
+    const action = isActive ? 'disable' : 'enable';
+    
+    if (!confirm(`Are you sure you want to ${action} this guest account?`)) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/admin/user/${currentGuestData.id}/toggle-status`, {
+            method: 'POST'
+        });
+
+        if (response && response.success) {
+            alert(`Guest account ${action}d successfully`);
+            closeGuestDetailModal();
+            closeGuestsModal();
+            loadUsers();
+        } else {
+            alert(response.error || `Failed to ${action} guest`);
+        }
+    } catch (error) {
+        alert(`Failed to ${action} guest. Please try again.`);
+    }
+}
+
+async function warnGuest() {
+    if (!currentGuestData) return;
+    
+    const reason = prompt(`Enter warning reason for ${currentGuestData.username}:`);
+    if (!reason) return;
+    
+    try {
+        const response = await apiCall(`/api/admin/user/${currentGuestData.id}/warn`, {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        });
+
+        if (response && response.success) {
+            alert('Warning issued successfully');
+            // Fetch updated warning count
+            const warningData = await apiCall(`/api/admin/user/${currentGuestData.id}/warnings`);
+            const newCount = warningData?.count || 0;
+            document.getElementById('guestWarnings').textContent = newCount;
+        } else {
+            alert(response.error || 'Failed to issue warning');
+        }
+    } catch (error) {
+        console.error('Error issuing warning:', error);
+        alert('Failed to issue warning. Please try again.');
+    }
+}
+
+async function resetGuestPassword() {
+    if (!currentGuestData) return;
+    
+    const newPassword = prompt(`Enter new password for ${currentGuestData.username}:\n(minimum 4 characters)`);
+    if (!newPassword) return;
+    
+    if (newPassword.length < 4) {
+        alert('Password must be at least 4 characters');
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/admin/user/${currentGuestData.id}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ newPassword })
+        });
+
+        if (response && response.success) {
+            alert('Guest password reset successfully');
+        } else {
+            alert(response.error || 'Failed to reset password');
+        }
+    } catch (error) {
+        alert('Failed to reset password. Please try again.');
+    }
+}
+
+async function deleteGuest() {
+    if (!currentGuestData) return;
+    
+    if (!confirm(`Delete guest account "${currentGuestData.username}"? This cannot be undone!`)) {
+        return;
+    }
+
+    // Double confirmation
+    if (!confirm(`Are you absolutely sure? This will permanently delete the guest account and all their data.`)) {
+        return;
+    }
+
+    try {
+        const response = await apiCall(`/api/admin/user/${currentGuestData.id}`, {
+            method: 'DELETE'
+        });
+
+        if (response && response.success) {
+            alert('Guest deleted successfully');
+            closeGuestDetailModal();
+            closeGuestsModal();
+            loadUsers();
+        } else {
+            alert(response.error || 'Failed to delete guest');
+        }
+    } catch (error) {
+        alert('Failed to delete guest. Please try again.');
+    }
+}

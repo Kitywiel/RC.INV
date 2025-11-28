@@ -39,9 +39,82 @@
                 <button type="submit" class="btn btn-primary">Login</button>
                 
                 <div class="form-footer">
+                    <p><a href="#" onclick="showForgotPassword(event)" style="color: #667eea; text-decoration: none;">Forgot password?</a></p>
                     <p>Don't have an account? <a href="signup.html">Sign up here</a></p>
                 </div>
             </form>
+        </div>
+
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h2 style="margin-top: 0; color: #2c3e50;">Reset Password</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px;">Contact your account administrator to reset your password.</p>
+                
+                <div id="forgotPasswordForm">
+                    <div class="form-group">
+                        <label for="resetUsername">Your Username</label>
+                        <input type="text" id="resetUsername" class="form-control" placeholder="Enter your username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="resetEmail">Your Email</label>
+                        <input type="email" id="resetEmail" class="form-control" placeholder="Enter your email" required>
+                    </div>
+                    <p style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 20px;">
+                        If you are a guest user, contact the account owner. For main accounts, please contact RC.INV support.
+                    </p>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="submitPasswordReset()" class="btn btn-primary" style="flex: 1;">Request Reset</button>
+                        <button onclick="closeForgotPassword()" class="btn" style="flex: 1; background: #95a5a6; color: white;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showForgotPassword(event) {
+            event.preventDefault();
+            const modal = document.getElementById('forgotPasswordModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeForgotPassword() {
+            const modal = document.getElementById('forgotPasswordModal');
+            modal.style.display = 'none';
+            document.getElementById('resetUsername').value = '';
+            document.getElementById('resetEmail').value = '';
+        }
+
+        function submitPasswordReset() {
+            const username = document.getElementById('resetUsername').value.trim();
+            const email = document.getElementById('resetEmail').value.trim();
+
+            if (!username || !email) {
+                alert('Please enter both username and email');
+                return;
+            }
+
+            alert('Password reset request received!\n\n' +
+                  'If you are a guest user, your account owner will be notified.\n' +
+                  'For main accounts, please check your email for reset instructions.\n\n' +
+                  'Username: ' + username + '\n' +
+                  'Email: ' + email);
+            
+            closeForgotPassword();
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('forgotPasswordModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeForgotPassword();
+            }
+        });
+    </script>
+    <script src="../js/login-signup/login.js"></script>
+</body>
+</html>
+
         </div>
     </div>
     <script src="../js/login-signup/login.js"></script>

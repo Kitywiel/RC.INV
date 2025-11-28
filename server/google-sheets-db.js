@@ -18,7 +18,8 @@ class GoogleSheetsDB {
             USERS: 'USERS',
             INVENTORY: 'INVENTORY',
             SETTINGS: 'SETTINGS',
-            GUESTS: 'GUESTS'
+            GUESTS: 'GUESTS',
+            USER_WARNINGS: 'USER_WARNINGS'
         };
     }
 
@@ -592,6 +593,7 @@ class GoogleSheetsDB {
                     id: row[1], // GUEST_ID
                     username: row[2], // GUEST_NAME
                     email: row[3], // EMAIL
+                    is_active: row[6] === 'TRUE' ? 1 : 0, // ACTIVE status
                     created_at: row[5], // ADDED_DATE
                     permission: row[7] || 'read-only', // RANK (permission)
                     last_login: row[8] || null // LAST_LOGGED_IN
@@ -645,6 +647,106 @@ class GoogleSheetsDB {
         };
 
         return stats;
+    }
+
+    /**
+     * Add a warning to USER_WARNINGS tab
+     * Columns: USER ID, WARN ID, WARNED BY, WARN REASON, WARN DATE, SEEN_BY_USER
+     */
+    async addWarning(userId, adminId, reason) {
+        const warningId = 'W' + Date.now();
+        const timestamp = new Date().toISOString();
+        
+        // Column order: USER ID, WARN ID, WARNED BY, WARN REASON, WARN DATE, SEEN_BY_USER
+        const row = [userId, warningId, adminId, reason, timestamp, 'FALSE'];
+        
+        await this.append(this.TABS.USER_WARNINGS, [row]);
+        return { id: warningId, user_id: userId, admin_id: adminId, reason, seen: false, timestamp };
+    }
+
+    /**
+     * Get warnings for a specific user
+     */
+    async getWarningsForUser(userId) {
+        const rows = await this.read(this.TABS.USER_WARNINGS);
+        if (!rows || rows.length === 0) return [];
+        
+        // Skip header row
+        // Columns: USER ID (0), WARN ID (1), WARNED BY (2), WARN REASON (3), WARN DATE (4), SEEN_BY_USER (5)
+        return rows.slice(1)
+            .filter(row => row[0] === userId) // USER ID column
+            .map(row => ({
+                user_id: row[0],
+                id: row[1],
+                admin_id: row[2],
+                reason: row[3],
+                timestamp: row[4] || '',
+                seen: row[5] === 'TRUE'
+            }));
+    }
+
+    /**
+     * Get count of warnings for a user
+     */
+    async getWarningCount(userId) {
+        const warnings = await this.getWarningsForUser(userId);
+        return warnings.length;
+    }
+
+    /**
+     * Get count of unseen warnings for a user
+     */
+    async getUnseenWarningCount(userId) {
+        const warnings = await this.getWarningsForUser(userId);
+        return warnings.filter(w => !w.seen).length;
+    }
+
+    /**
+     * Mark all warnings as seen for a user
+     */
+    async markWarningsAsSeen(userId) {
+        const rows = await this.read(this.TABS.USER_WARNINGS);
+        if (!rows || rows.length === 0) return 0;
+        
+        const header = rows[0];
+        const dataRows = rows.slice(1);
+        
+        let markedCount = 0;
+        // Update warnings for this user to SEEN_BY_USER = TRUE (column 5)
+        const updatedRows = dataRows.map(row => {
+            if (row[0] === userId && row[5] !== 'TRUE') {
+                markedCount++;
+                return [row[0], row[1], row[2], row[3], row[4], 'TRUE'];
+            }
+            return row;
+        });
+        
+        // Rewrite the sheet
+        await this.clear(this.TABS.USER_WARNINGS);
+        await this.write(this.TABS.USER_WARNINGS, 'A1', [header, ...updatedRows]);
+        
+        return markedCount;
+    }
+
+    /**
+     * Delete all warnings for a user
+     */
+    async deleteWarningsForUser(userId) {
+        const rows = await this.read(this.TABS.USER_WARNINGS);
+        if (!rows || rows.length === 0) return 0;
+        
+        const header = rows[0];
+        const dataRows = rows.slice(1);
+        
+        // Filter out warnings for this user (USER ID is column 0)
+        const filteredRows = dataRows.filter(row => row[0] !== userId);
+        const deletedCount = dataRows.length - filteredRows.length;
+        
+        // Rewrite the sheet
+        await this.clear(this.TABS.USER_WARNINGS);
+        await this.write(this.TABS.USER_WARNINGS, 'A1', [header, ...filteredRows]);
+        
+        return deletedCount;
     }
 }
 

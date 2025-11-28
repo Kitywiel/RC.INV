@@ -140,6 +140,22 @@
             </a>
         </div>
 
+        <!-- Warning Notification Banner -->
+        <div id="warningBanner" style="display: none; background: #ff9800; color: white; padding: 15px 40px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span style="font-size: 2em;">⚠️</span>
+                    <div>
+                        <strong style="font-size: 1.2em;">You have <span id="warningCount">0</span> new warning(s)</strong>
+                        <div style="font-size: 0.9em; margin-top: 5px;" id="warningMessage">Please review the warnings from administrators.</div>
+                    </div>
+                </div>
+                <button onclick="dismissWarnings()" style="background: rgba(255,255,255,0.3); border: 2px solid white; color: white; padding: 8px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+
         <div class="dashboard-content">
             <div id="dashboardContent">
                 <div class="loading">Loading your dashboard...</div>
@@ -163,9 +179,51 @@
         // Display user info
         document.getElementById('username').textContent = user.username;
 
+        // Check for unseen warnings
+        async function checkWarnings() {
+            try {
+                const response = await fetch('/api/user/warnings/unseen', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.unseenCount > 0) {
+                    document.getElementById('warningCount').textContent = data.unseenCount;
+                    document.getElementById('warningBanner').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error checking warnings:', error);
+            }
+        }
+
+        // Dismiss warnings
+        async function dismissWarnings() {
+            try {
+                await fetch('/api/user/warnings/mark-seen', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                document.getElementById('warningBanner').style.display = 'none';
+            } catch (error) {
+                console.error('Error dismissing warnings:', error);
+            }
+        }
+
+        // Check warnings on page load
+        checkWarnings();
+
         // Show admin link for admins
+        console.log('User role:', user.role); // Debug
         if (user.role === 'admin') {
-            document.getElementById('adminNavLink').style.display = 'inline';
+            const adminLink = document.getElementById('adminNavLink');
+            if (adminLink) {
+                adminLink.style.display = 'inline';
+                console.log('Admin link shown');
+            }
         }
 
         // Load dashboard content

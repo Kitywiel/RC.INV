@@ -183,11 +183,9 @@ function displayInventory(items) {
                 <td><strong style="color: #27ae60;">$${totalValue}</strong></td>
                 <td><span class="badge-location">${escapeHtml(item.location || '-')}</span></td>
                 <td class="actions-cell">
-                    ${isReadOnly ? '<span style="color: #95a5a6;">View Only</span>' : `
                     <button class="btn btn-small btn-adjust" onclick="showAdjustModal('${item.id}')" title="Adjust Quantity">📊</button>
                     <button class="btn btn-small btn-edit" onclick="editItem('${item.id}')" title="Edit Item">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deleteItem('${item.id}')" title="Delete Item">🗑️</button>
-                    `}
                 </td>
             </tr>
         `;

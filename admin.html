@@ -41,10 +41,19 @@
             color: #7f8c8d;
         }
 
+        .inventory-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .inventory-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
         .user-status {
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 20px;
             font-size: 0.85em;
             font-weight: 600;
         }
@@ -59,64 +68,175 @@
             color: #721c24;
         }
 
-        .btn-admin {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin: 2px;
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            background: #e8f4f8;
+            color: #3498db;
         }
 
-        .btn-toggle {
-            background: #f39c12;
-            color: white;
-        }
-
-        .btn-unlock {
-            background: #27ae60;
-            color: white;
-        }
-
-        .btn-clear {
-            background: #e67e22;
-            color: white;
-        }
-
-        .btn-view {
-            background: #3498db;
-            color: white;
-        }
-
-        .btn-admin:hover {
-            opacity: 0.8;
-        }
-
-        .modal-overlay {
+        /* User Detail Modal */
+        .user-modal {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
             justify-content: center;
             align-items: center;
         }
 
-        .modal-overlay.active {
-            display: flex;
+        .user-modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .modal-box {
+        .user-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .user-modal-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #7f8c8d;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+        }
+
+        .modal-close:hover {
+            color: #2c3e50;
+        }
+
+        .user-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .user-info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .user-info-item label {
+            display: block;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .user-info-item .value {
+            font-size: 1em;
+            color: #2c3e50;
+            word-break: break-word;
+        }
+
+        .user-modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+        }
+
+        .btn-modal {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .btn-modal.btn-toggle {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-modal.btn-unlock {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-modal.btn-clear {
+            background: #e67e22;
+            color: white;
+        }
+
+        .btn-modal.btn-guests {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-modal.btn-reset {
+            background: #16a085;
+            color: white;
+        }
+
+        .btn-modal.btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-modal:hover {
+            opacity: 0.9;
+        }
+
+        .guest-item {
             background: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 900px;
-            max-height: 80vh;
-            overflow-y: auto;
-            width: 90%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .guest-info {
+            flex: 1;
+        }
+
+        .guest-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .guest-email {
+            font-size: 0.9em;
+            color: #7f8c8d;
         }
     </style>
 </head>
@@ -174,12 +294,11 @@
                         <th>Items</th>
                         <th>Limit</th>
                         <th>Created</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usersTableBody">
                     <tr>
-                        <td colspan="8" class="loading-cell">Loading users...</td>
+                        <td colspan="7" class="loading-cell">Loading users...</td>
                     </tr>
                 </tbody>
             </table>
@@ -187,11 +306,181 @@
     </div>
 
     <!-- User Details Modal -->
-    <div id="userModal" class="modal-overlay">
-        <div class="modal-box">
-            <h2>User Details</h2>
-            <div id="userDetails"></div>
-            <button class="btn btn-secondary" onclick="closeUserModal()" style="margin-top: 20px;">Close</button>
+    <div id="userModal" class="user-modal">
+        <div class="user-modal-content">
+            <div class="user-modal-header">
+                <h2>User Account Details</h2>
+                <button class="modal-close" onclick="closeUserModal()">&times;</button>
+            </div>
+            
+            <div class="user-info-grid">
+                <div class="user-info-item">
+                    <label>Username</label>
+                    <div class="value" id="modalUsername">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Email</label>
+                    <div class="value" id="modalEmail">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Role</label>
+                    <div class="value" id="modalRole">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Status</label>
+                    <div class="value" id="modalStatus">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Item Count</label>
+                    <div class="value" id="modalItemCount">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Item Limit</label>
+                    <div class="value" id="modalItemLimit">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Account Created</label>
+                    <div class="value" id="modalCreated">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>User ID</label>
+                    <div class="value" id="modalUserId" style="font-family: monospace; font-size: 0.85em;">-</div>
+                </div>
+            </div>
+
+            <div class="user-modal-actions">
+                <button class="btn-modal btn-toggle" onclick="toggleUserStatusFromModal()" id="modalToggleBtn">
+                    <span id="modalToggleText">Toggle Status</span>
+                </button>
+                <button class="btn-modal btn-unlock" onclick="unlockUnlimitedFromModal()" id="modalUnlockBtn">
+                    ♾️ Unlock Unlimited
+                </button>
+                <button class="btn-modal btn-guests" onclick="openGuestsPanel()">
+                    👥 View Guests (<span id="guestCount">0</span>)
+                </button>
+                <button class="btn-modal btn-inventory" onclick="openInventoryPanel()">
+                    📦 View Inventory (<span id="itemCountBtn">0</span>)
+                </button>
+                <button class="btn-modal" onclick="warnUserFromModal()" style="background: #f39c12;">
+                    ⚠️ Warn User
+                </button>
+                <button class="btn-modal btn-reset" onclick="resetPasswordFromModal()">
+                    🔑 Reset Password
+                </button>
+                <button class="btn-modal btn-delete" onclick="deleteUserFromModal()">
+                    ❌ Delete User
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guests Panel Modal -->
+    <div id="guestsModal" class="user-modal">
+        <div class="user-modal-content" style="max-width: 900px;">
+            <div class="user-modal-header">
+                <h2>Guest Accounts (<span id="guestCountModal">0</span>)</h2>
+                <button class="modal-close" onclick="closeGuestsModal()">&times;</button>
+            </div>
+            <div id="guestsListModal">
+                <table class="inventory-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Permission</th>
+                            <th>Created</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guestsTableBody">
+                        <!-- Guests will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Panel Modal -->
+    <div id="inventoryModal" class="user-modal">
+        <div class="user-modal-content" style="max-width: 900px;">
+            <div class="user-modal-header">
+                <h2>Inventory Items (<span id="inventoryItemCount">0</span>)</h2>
+                <button class="modal-close" onclick="closeInventoryModal()">&times;</button>
+            </div>
+            <div id="inventoryListModal">
+                <table class="inventory-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Category</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        <!-- Items will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="user-modal-actions" style="margin-top: 20px;">
+                <button class="btn-modal btn-clear" onclick="clearItemsFromInventoryPanel()">
+                    🗑️ Clear All Items
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guest Detail Modal -->
+    <div id="guestDetailModal" class="user-modal">
+        <div class="user-modal-content">
+            <div class="user-modal-header">
+                <h2>Guest Account Details</h2>
+                <button class="modal-close" onclick="closeGuestDetailModal()">&times;</button>
+            </div>
+
+            <div class="user-info-grid">
+                <div class="user-info-item">
+                    <label>Username</label>
+                    <div class="value" id="guestUsername">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Email</label>
+                    <div class="value" id="guestEmail">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Guest Rank</label>
+                    <div class="value" id="guestRank">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Status</label>
+                    <div class="value" id="guestStatus">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Guest ID</label>
+                    <div class="value" id="guestId" style="font-family: monospace; font-size: 0.85em;">-</div>
+                </div>
+                <div class="user-info-item">
+                    <label>Warnings</label>
+                    <div class="value" id="guestWarnings">0</div>
+                </div>
+            </div>
+
+            <div class="user-modal-actions">
+                <button class="btn-modal btn-toggle" onclick="toggleGuestStatus()" id="guestToggleBtn">
+                    <span id="guestToggleText">Toggle Status</span>
+                </button>
+                <button class="btn-modal" onclick="warnGuest()" style="background: #f39c12;">
+                    ⚠️ Warn Guest
+                </button>
+                <button class="btn-modal btn-reset" onclick="resetGuestPassword()">
+                    🔑 Reset Password
+                </button>
+                <button class="btn-modal btn-delete" onclick="deleteGuest()">
+                    ❌ Delete Guest
+                </button>
+            </div>
         </div>
     </div>
 
