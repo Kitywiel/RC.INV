@@ -400,15 +400,15 @@
                 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <h3>0</h3>
+                        <h3 id="dashTotalItems">0</h3>
                         <p>Total Items</p>
                     </div>
                     <div class="stat-card">
-                        <h3>0</h3>
+                        <h3 id="dashCategories">0</h3>
                         <p>Categories</p>
                     </div>
                     <div class="stat-card">
-                        <h3>0</h3>
+                        <h3 id="dashLowStock">0</h3>
                         <p>Low Stock Items</p>
                     </div>
                 </div>
@@ -426,6 +426,22 @@
             `;
             
             document.getElementById('dashboardContent').innerHTML = content;
+            
+            // Load stats after rendering
+            loadDashboardStats();
+        }
+
+        async function loadDashboardStats() {
+            try {
+                const data = await apiCall('/api/inventory/stats');
+                if (data && data.stats) {
+                    document.getElementById('dashTotalItems').textContent = data.stats.totalItems;
+                    document.getElementById('dashCategories').textContent = data.stats.totalCategories;
+                    document.getElementById('dashLowStock').textContent = data.stats.lowStockItems;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+            }
         }
 
         function logout() {

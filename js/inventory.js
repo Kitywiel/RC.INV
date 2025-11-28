@@ -39,7 +39,7 @@ let isReadOnly = user.role === 'guest';
 document.addEventListener('DOMContentLoaded', async () => {
     await refreshUserData();
     loadStats();
-    loadInventory();
+    await loadInventory(); // Wait for inventory to load before categories
     loadCategories();
     
     // Show admin link for admins
