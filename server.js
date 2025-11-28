@@ -677,7 +677,7 @@ app.get('/api/auth/guests', authenticateToken, async (req, res) => {
 
     try {
         const guests = await dbGetAllUsers(
-            `SELECT id, username, email, created_at, last_login FROM users WHERE owner_id = ? AND role = 'guest'`,
+            `SELECT id, username, email, permission, created_at, last_login FROM users WHERE owner_id = ? AND role = 'guest'`,
             [req.user.id]
         );
         res.json({ guests });

@@ -209,6 +209,8 @@ class GoogleSheetsDB {
             owner_id: guestRow[0], // USER_ID (owner)
             is_active: guestRow[6] === 'TRUE' ? 1 : 0,
             created_at: guestRow[5],
+            permission: guestRow[7] || 'read-only', // RANK (permission)
+            last_login: guestRow[8] || null, // LAST_LOGGED_IN
             item_limit: 20,
             has_unlimited: 0
         };
@@ -224,13 +226,15 @@ class GoogleSheetsDB {
         // If guest, ONLY add to GUESTS tab (not USERS)
         if (userData.role === 'guest' && userData.owner_id) {
             const guestRow = [
-                userData.owner_id,
-                userId,
-                userData.username,
-                userData.email,
-                userData.password, // PASSCODE (hashed)
-                timestamp,
-                'TRUE'
+                userData.owner_id,      // USER_ID
+                userId,                 // GUEST_ID
+                userData.username,      // GUEST_NAME
+                userData.email,         // EMAIL
+                userData.password,      // PASSCODE (hashed)
+                timestamp,              // ADDED_DATE
+                'TRUE',                 // ACTIVE
+                userData.permission || 'read-only', // RANK (permission)
+                ''                      // LAST_LOGGED_IN
             ];
             await this.append(this.TABS.GUESTS, [guestRow]);
             return { id: userId, ...userData, created_at: timestamp };
@@ -297,7 +301,7 @@ class GoogleSheetsDB {
                 const rowNumber = guestIndex + 2;
                 const currentRow = guestsData[guestIndex + 1];
 
-                // GUESTS format: USER_ID, GUEST_ID, GUEST_NAME, EMAIL, PASSCODE, ADDED_DATE, ACTIVE
+                // GUESTS format: USER_ID, GUEST_ID, GUEST_NAME, EMAIL, PASSCODE, ADDED_DATE, ACTIVE, RANK, LAST_LOGGED_IN
                 const row = [
                     currentRow[0], // USER_ID (owner)
                     currentRow[1], // GUEST_ID (don't change)
@@ -305,10 +309,12 @@ class GoogleSheetsDB {
                     updates.email !== undefined ? updates.email : currentRow[3],
                     updates.password !== undefined ? updates.password : currentRow[4],
                     currentRow[5], // ADDED_DATE (preserve)
-                    updates.is_active !== undefined ? (updates.is_active ? 'TRUE' : 'FALSE') : currentRow[6]
+                    updates.is_active !== undefined ? (updates.is_active ? 'TRUE' : 'FALSE') : currentRow[6],
+                    updates.permission !== undefined ? updates.permission : (currentRow[7] || 'read-only'), // RANK (permission)
+                    updates.last_login !== undefined ? updates.last_login : (currentRow[8] || '') // LAST_LOGGED_IN
                 ];
 
-                await this.write(this.TABS.GUESTS, `A${rowNumber}:G${rowNumber}`, [row]);
+                await this.write(this.TABS.GUESTS, `A${rowNumber}:I${rowNumber}`, [row]);
                 return { changes: 1 };
             }
         }
@@ -583,7 +589,8 @@ class GoogleSheetsDB {
                     username: row[2], // GUEST_NAME
                     email: row[3], // EMAIL
                     created_at: row[5], // ADDED_DATE
-                    last_login: null
+                    permission: row[7] || 'read-only', // RANK (permission)
+                    last_login: row[8] || null // LAST_LOGGED_IN
                 };
             });
     }
