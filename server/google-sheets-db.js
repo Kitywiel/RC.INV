@@ -225,9 +225,13 @@ class GoogleSheetsDB {
 
         // If guest, ONLY add to GUESTS tab (not USERS)
         if (userData.role === 'guest' && userData.owner_id) {
+            // Generate 10-digit guest number
+            const guestNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+            const guestId = `${userData.owner_id}:guest:${guestNumber}`;
+            
             const guestRow = [
                 userData.owner_id,      // USER_ID
-                userId,                 // GUEST_ID
+                guestId,                // GUEST_ID (format: USER_ID:guest:XXXXXXXXXX)
                 userData.username,      // GUEST_NAME
                 userData.email,         // EMAIL
                 userData.password,      // PASSCODE (hashed)
@@ -237,7 +241,7 @@ class GoogleSheetsDB {
                 ''                      // LAST_LOGGED_IN
             ];
             await this.append(this.TABS.GUESTS, [guestRow]);
-            return { id: userId, ...userData, created_at: timestamp };
+            return { id: guestId, ...userData, created_at: timestamp };
         }
 
         // Regular users go to USERS tab
@@ -600,15 +604,20 @@ class GoogleSheetsDB {
      */
     async addGuest(userId, guestData) {
         const timestamp = new Date().toISOString();
-        const guestId = `G${Date.now()}`;
+        // Generate 10-digit guest number
+        const guestNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+        const guestId = `${userId}:guest:${guestNumber}`;
 
         const row = [
-            userId,
-            guestId,
-            guestData.username,
-            guestData.email,
-            timestamp,
-            'TRUE'
+            userId,                              // USER_ID
+            guestId,                             // GUEST_ID (format: USER_ID:guest:XXXXXXXXXX)
+            guestData.username,                  // GUEST_NAME
+            guestData.email,                     // EMAIL
+            guestData.password || '',            // PASSCODE (hashed)
+            timestamp,                           // ADDED_DATE
+            'TRUE',                              // ACTIVE
+            guestData.permission || 'read-only', // RANK (permission)
+            ''                                   // LAST_LOGGED_IN
         ];
 
         await this.append(this.TABS.GUESTS, [row]);
